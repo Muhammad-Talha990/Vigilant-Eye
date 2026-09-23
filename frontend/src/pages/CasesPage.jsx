@@ -110,55 +110,90 @@ export default function CasesPage() {
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
           <p className="p-6 text-slate-500">Loading...</p>
+        ) : filtered.length === 0 ? (
+          <div className="space-y-3 p-8 text-center">
+            <p className="text-lg font-semibold text-au-navy">No cases yet</p>
+            <p className="text-sm text-slate-600">
+              {isStudent
+                ? "When staff files a case for your linked roll, it appears here."
+                : "Create a case manually or draft one from a confirmed detection."}
+            </p>
+            {!isStudent ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link
+                  to="/app/cases/new"
+                  className="rounded-lg bg-au-navy px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Create Case
+                </Link>
+                <Link
+                  to="/app/detections"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                >
+                  View Detections
+                </Link>
+              </div>
+            ) : (
+              <Link
+                to="/app/help"
+                className="inline-flex rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                Help & Guidelines
+              </Link>
+            )}
+          </div>
         ) : (
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-4 py-3">Case No.</th>
                 <th className="px-4 py-3">Violation</th>
-                <th className="px-4 py-3">Student ID</th>
+                <th className="px-4 py-3">Student</th>
+                <th className="px-4 py-3">Exam / Room</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Created</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
-                    No cases{statusFilter ? ` with status ${statusFilter}` : ""}.
-                    {isStudent
-                      ? " Ask staff to link your account, then create a case for your roll."
-                      : ""}
+              {filtered.map((c) => (
+                <tr key={c.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 font-medium text-au-navy">
+                    {c.case_number}
+                  </td>
+                  <td className="px-4 py-3">{c.violation_type}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium">
+                      {c.student_name || "—"}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {c.student_roll || c.student_id}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    <div>{c.exam_course_code || "—"}</div>
+                    <div className="text-xs text-slate-500">
+                      {c.room_number ? `Room ${c.room_number}` : ""}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={c.status} />
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {c.created_at
+                      ? new Date(c.created_at).toLocaleString()
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      to={`/app/cases/${c.id}`}
+                      className="font-semibold text-au-blue hover:underline"
+                    >
+                      Open
+                    </Link>
                   </td>
                 </tr>
-              ) : (
-                filtered.map((c) => (
-                  <tr key={c.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-medium text-au-navy">
-                      {c.case_number}
-                    </td>
-                    <td className="px-4 py-3">{c.violation_type}</td>
-                    <td className="px-4 py-3">{c.student_id}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={c.status} />
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {c.created_at
-                        ? new Date(c.created_at).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/app/cases/${c.id}`}
-                        className="font-semibold text-au-blue hover:underline"
-                      >
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         )}

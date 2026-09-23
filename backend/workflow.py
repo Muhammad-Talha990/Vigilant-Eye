@@ -1,8 +1,9 @@
 """
-Simple UFM case status workflow for the prototype.
+Simple UFM case status workflow for the submission build.
 
 Chain:
 PENDING
+  → (staff open) → UNDER_REVIEW (optional)
   → (HOD FORWARD) → DEC_REVIEW
   → (DEC FORWARD) → EXAM_DEPARTMENT_REVIEW
   → (EXAM_DEPARTMENT FORWARD) → UFM_COMMITTEE_REVIEW

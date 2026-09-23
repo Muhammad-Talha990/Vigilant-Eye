@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchCases, fetchEvidence, openEvidenceFile, uploadEvidence } from "../services/api";
+import { fetchCases, fetchEvidence, openEvidenceFile, downloadEvidenceFile, uploadEvidence } from "../services/api";
 
 export default function EvidencePage() {
   const [searchParams] = useSearchParams();
@@ -224,19 +224,34 @@ export default function EvidencePage() {
                       : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-au-blue hover:underline"
-                      onClick={async () => {
-                        try {
-                          await openEvidenceFile(e.id);
-                        } catch (err) {
-                          setError(err.message || "Could not open file");
-                        }
-                      }}
-                    >
-                      Open
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-au-blue hover:underline"
+                        onClick={async () => {
+                          try {
+                            await openEvidenceFile(e.id);
+                          } catch (err) {
+                            setError(err.message || "Could not open file");
+                          }
+                        }}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-slate-700 hover:underline"
+                        onClick={async () => {
+                          try {
+                            await downloadEvidenceFile(e.id);
+                          } catch (err) {
+                            setError(err.message || "Could not download file");
+                          }
+                        }}
+                      >
+                        Download
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

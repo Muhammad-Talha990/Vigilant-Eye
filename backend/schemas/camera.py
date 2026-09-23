@@ -20,5 +20,8 @@ class CameraOut(BaseModel):
     room_id: int
     stream_url: str
     is_active: bool
+    room_label: str | None = None
+    source_kind: str | None = None
+    stream_display: str | None = None
 
     model_config = {"from_attributes": True}

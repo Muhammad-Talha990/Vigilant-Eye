@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import DonutChart from "../components/DonutChart";
 import KpiCard from "../components/KpiCard";
 import { countByField } from "../config/dashboardByRole";
-import { fetchCases, fetchDetections } from "../services/api";
+import { downloadCasesCsv, fetchCases, fetchDetections } from "../services/api";
 
 export default function ReportsPage() {
   const [cases, setCases] = useState([]);
@@ -44,15 +44,28 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm text-slate-500">Home / Reports</p>
-        <h1 className="text-2xl font-semibold text-au-navy">Reports</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
-            PROTOTYPE
-          </span>{" "}
-          Live summaries from cases and detections. Export/PDF is FUTURE.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm text-slate-500">Home / Reports</p>
+          <h1 className="text-2xl font-semibold text-au-navy">Reports</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Live summaries from cases and detections. Download a CSV of cases for
+            reporting packages; formal PDF output can be added later if required.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await downloadCasesCsv();
+            } catch (err) {
+              setError(err.message || "CSV export failed");
+            }
+          }}
+          className="rounded-lg bg-au-navy px-4 py-2 text-sm font-semibold text-white"
+        >
+          Export cases CSV
+        </button>
       </div>
 
       {error ? (

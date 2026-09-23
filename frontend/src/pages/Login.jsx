@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const DEMO_ACCOUNTS = [
+/** Sample accounts for viva / evaluation walkthrough (optional quick access). */
+const SAMPLE_ACCOUNTS = [
   { role: "Invigilator", email: "invigilator@demo.com" },
   { role: "HOD", email: "hod@demo.com" },
   { role: "DEC", email: "dec@demo.com" },
@@ -14,8 +15,8 @@ const DEMO_ACCOUNTS = [
 export default function Login() {
   const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("invigilator@demo.com");
-  const [password, setPassword] = useState("Demo@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -37,14 +38,9 @@ export default function Login() {
     }
   }
 
-  function fillDemo(accountEmail) {
+  async function signInAs(accountEmail) {
     setEmail(accountEmail);
     setPassword("Demo@123");
-    setFormError("");
-  }
-
-  async function signInAs(accountEmail) {
-    fillDemo(accountEmail);
     setSubmitting(true);
     setFormError("");
     try {
@@ -67,19 +63,21 @@ export default function Login() {
             Air University · Examination Integrity
           </div>
           <h1 className="mt-10 text-5xl font-semibold leading-tight tracking-tight">
-            UFM Web Portal
+            VigilantEye
           </h1>
           <p className="mt-5 max-w-md text-lg text-slate-200">
-            Sign in to monitor examinations, review detections, manage UFM cases,
-            and track decisions across institutional roles.
+            Institutional UFM portal — live monitoring, AI-assisted detections,
+            case review, student clarification, and result controls.
           </p>
         </div>
         <div className="relative z-10 grid gap-2 text-sm text-slate-200">
-          <p className="font-medium text-white">
-            Demo accounts — click to sign in (password: Demo@123)
+          <p className="font-medium text-white">Evaluation role shortcuts</p>
+          <p className="text-xs text-slate-400">
+            For viva walkthroughs. Production users sign in with their own
+            credentials on the right.
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {DEMO_ACCOUNTS.map((item) => (
+            {SAMPLE_ACCOUNTS.map((item) => (
               <button
                 key={item.email}
                 type="button"
@@ -92,9 +90,6 @@ export default function Login() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-slate-400">
-            Tip: start with Invigilator → Live Monitoring → Create Case → HOD.
-          </p>
         </div>
       </section>
 
@@ -106,7 +101,7 @@ export default function Login() {
             </p>
             <h2 className="mt-2 text-3xl font-semibold text-au-navy">Sign in</h2>
             <p className="mt-2 text-slate-500">
-              Use your portal credentials to continue.
+              Enter your portal email and password to continue.
             </p>
           </div>
 
@@ -120,11 +115,11 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-au-border bg-slate-50 px-4 py-3 outline-none transition focus:border-au-accent focus:bg-white focus:ring-4 focus:ring-au-accent/15"
-                placeholder="you@au.edu.pk"
+                autoComplete="username"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5"
+                placeholder="you@university.edu"
               />
             </label>
-
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-slate-700">
                 Password
@@ -134,8 +129,9 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-au-border bg-slate-50 px-4 py-3 outline-none transition focus:border-au-accent focus:bg-white focus:ring-4 focus:ring-au-accent/15"
-                placeholder="Enter password"
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5"
+                placeholder="••••••••"
               />
             </label>
 
@@ -156,10 +152,10 @@ export default function Login() {
 
           <div className="mt-6 grid gap-2 lg:hidden">
             <p className="text-center text-xs text-slate-400">
-              Demo password: Demo@123 — tap a role to sign in
+              Evaluation shortcuts
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              {DEMO_ACCOUNTS.map((item) => (
+              {SAMPLE_ACCOUNTS.map((item) => (
                 <button
                   key={item.email}
                   type="button"

@@ -16,18 +16,19 @@ ai/dataset/ufm/
 
 ## Current training classes
 
-After importing Roboflow exam + wrist-watch datasets, `data.yaml` uses:
+Target vocabulary for a custom detector (see also `WATCH_PHONE_TRAINING.md`):
 
-| ID | Class | Portal mapping |
-|----|--------|----------------|
+| ID | Class | Portal |
+|----|--------|--------|
 | 0 | mobile_phone | MOBILE_PHONE |
 | 1 | smart_watch | SMART_WATCH |
-| 2 | notes_paper | NOTES_PAPER |
-| 3 | suspicious_object | SUSPICIOUS_OBJECT |
-| 4 | non_cheating | (context; not auto-draft) |
-| 5 | hand_normal | (context; not auto-draft) |
+| 2 | normal_watch | **Allowed (no alert)** |
+| 3 | notes_paper | NOTES_PAPER |
+| 4 | suspicious_object | SUSPICIOUS_OBJECT |
 
-`electronic_gadget` remains supported in `ai/ufm_classes.py` for COCO aliases / future labels.
+Imported Roboflow folders may use a slightly different id map in `data.yaml` —
+re-align before training. COCO fallback cannot distinguish ordinary watches
+from phones; use custom weights + `YOLO_USE_CUSTOM=1` after training.
 
 ## Import Roboflow export
 

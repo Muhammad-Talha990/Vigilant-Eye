@@ -83,8 +83,18 @@ export default function ResultControlsPage() {
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={7}>
-                    No result controls yet.
+                  <td className="px-4 py-8 text-center text-slate-600" colSpan={7}>
+                    <p className="font-semibold text-au-navy">No result holds yet</p>
+                    <p className="mt-1 text-sm">
+                      Holds appear automatically when a case is{" "}
+                      <strong>APPROVED</strong> by the UFM Committee.
+                    </p>
+                    <Link
+                      to="/app/cases"
+                      className="mt-3 inline-flex rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                    >
+                      View cases
+                    </Link>
                   </td>
                 </tr>
               ) : (

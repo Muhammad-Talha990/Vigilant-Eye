@@ -35,6 +35,7 @@ from detection_bridge import (  # noqa: E402
     create_draft_case_from_detection,
     notify_detection_alert,
 )
+from evidence_auto import create_detection_evidence  # noqa: E402
 from models.camera import Camera  # noqa: E402
 from models.detection import Detection  # noqa: E402
 from ufm_classes import (  # noqa: E402
@@ -101,7 +102,7 @@ def main() -> None:
 
     streaks: dict[str, int] = defaultdict(int)
     confirmed_labels: set[str] = set()
-    pending_rows: list[Detection] = []
+    pending_rows: list[tuple[Detection, object]] = []
 
     frame_index = 0
     while True:
@@ -141,7 +142,7 @@ def main() -> None:
                     source_path=str(source).replace("\\", "/"),
                     frame_index=frame_index,
                 )
-                pending_rows.append(row)
+                pending_rows.append((row, frame.copy()))
                 violation = to_violation_type(label)
                 print(
                     f"CONFIRMED -> DB  {label}  violation={violation or '—'}  "
@@ -158,15 +159,25 @@ def main() -> None:
         if camera_id is not None and db.get(Camera, camera_id) is None:
             print(f"Warning: camera_id={camera_id} not found; saving with camera_id=NULL")
             camera_id = None
-            for row in pending_rows:
+            for row, _frame in pending_rows:
                 row.camera_id = None
 
         drafts_created = 0
-        for row in pending_rows:
+        for row, snap_frame in pending_rows:
             db.add(row)
             db.flush()
             alert_count = notify_detection_alert(db, row)
             print(f"  alerted {alert_count} HOD user(s) for detection #{row.id}")
+            create_detection_evidence(
+                db,
+                detection_id=int(row.id),
+                camera_id=row.camera_id,
+                confidence=row.confidence,
+                frame_bgr=snap_frame,
+                clip_frames=None,
+                case_id=None,
+            )
+            print(f"  auto SNAPSHOT evidence for detection #{row.id}")
 
             if args.auto_draft and is_ufm_watchlist(row.detection_type):
                 case = create_draft_case_from_detection(

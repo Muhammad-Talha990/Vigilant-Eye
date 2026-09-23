@@ -7,6 +7,7 @@ import {
   fetchCameras,
   fetchExamRooms,
   fetchExams,
+  testCameraSource,
 } from "../services/api";
 
 const TABS = [
@@ -38,9 +39,11 @@ export default function MasterDataPage() {
     camera_id: "",
     name: "",
     room_id: "",
+    source_kind: "webcam",
     stream_url: "webcam:0",
     is_active: true,
   });
+  const [testMsg, setTestMsg] = useState("");
   const [examForm, setExamForm] = useState({
     course_code: "",
     course_name: "",
@@ -114,6 +117,7 @@ export default function MasterDataPage() {
     setBusy(true);
     setError("");
     setMessage("");
+    setTestMsg("");
     try {
       await createCamera({
         camera_id: cameraForm.camera_id.trim(),
@@ -127,6 +131,8 @@ export default function MasterDataPage() {
         ...prev,
         camera_id: "",
         name: "",
+        source_kind: "webcam",
+        stream_url: "webcam:0",
       }));
       await load();
     } catch (err) {
@@ -134,6 +140,36 @@ export default function MasterDataPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onTestCameraSource() {
+    setBusy(true);
+    setError("");
+    setTestMsg("");
+    try {
+      const res = await testCameraSource(cameraForm.stream_url.trim());
+      setTestMsg(
+        res.message ||
+          `OK ${res.frame_width}×${res.frame_height} (${res.validated_url})`
+      );
+    } catch (err) {
+      setError(err.message || "Connection test failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function applySourceKind(kind) {
+    const defaults = {
+      webcam: "webcam:0",
+      rtsp: "rtsp://",
+      file: "ai/samples/sample_exam_clip.mp4",
+    };
+    setCameraForm((p) => ({
+      ...p,
+      source_kind: kind,
+      stream_url: defaults[kind] || p.stream_url,
+    }));
   }
 
   async function onCreateExam(event) {
@@ -328,22 +364,57 @@ export default function MasterDataPage() {
                       setCameraForm((p) => ({ ...p, room_id: e.target.value }))
                     }
                   >
-                    <option value="">Select room</option>
+                    <option value="">Select hall / room</option>
                     {rooms.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.room_number} — {r.building}
                       </option>
                     ))}
                   </select>
+                  <label className="block text-xs font-semibold text-slate-600">
+                    Source type
+                    <select
+                      className={`${inputClass} mt-1`}
+                      value={cameraForm.source_kind}
+                      onChange={(e) => applySourceKind(e.target.value)}
+                    >
+                      <option value="webcam">Connected webcam</option>
+                      <option value="rtsp">RTSP / IP camera</option>
+                      <option value="file">Approved sample video</option>
+                    </select>
+                  </label>
                   <input
                     required
                     className={inputClass}
-                    placeholder="webcam:0 or rtsp://..."
+                    placeholder={
+                      cameraForm.source_kind === "rtsp"
+                        ? "rtsp://user:pass@host/stream"
+                        : cameraForm.source_kind === "file"
+                          ? "ai/samples/sample_exam_clip.mp4"
+                          : "webcam:0"
+                    }
                     value={cameraForm.stream_url}
                     onChange={(e) =>
                       setCameraForm((p) => ({ ...p, stream_url: e.target.value }))
                     }
                   />
+                  <p className="text-[11px] text-slate-500">
+                    Credentials in RTSP URLs are stored server-side and redacted on
+                    monitoring cards. Arbitrary absolute paths are rejected.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={busy || !cameraForm.stream_url.trim()}
+                      onClick={onTestCameraSource}
+                      className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                    >
+                      Test connection
+                    </button>
+                  </div>
+                  {testMsg ? (
+                    <p className="text-xs font-medium text-emerald-700">{testMsg}</p>
+                  ) : null}
                   <label className="flex items-center gap-2 text-sm text-slate-700">
                     <input
                       type="checkbox"
@@ -382,7 +453,8 @@ export default function MasterDataPage() {
                     <tr>
                       <th className="px-4 py-2">Code</th>
                       <th className="px-4 py-2">Name</th>
-                      <th className="px-4 py-2">Room</th>
+                      <th className="px-4 py-2">Hall</th>
+                      <th className="px-4 py-2">Source</th>
                       <th className="px-4 py-2">Active</th>
                     </tr>
                   </thead>
@@ -391,7 +463,13 @@ export default function MasterDataPage() {
                       <tr key={c.id} className="border-t border-slate-100">
                         <td className="px-4 py-2 font-medium">{c.camera_id}</td>
                         <td className="px-4 py-2">{c.name}</td>
-                        <td className="px-4 py-2">{roomLabel(c.room_id)}</td>
+                        <td className="px-4 py-2">
+                          {c.room_label || roomLabel(c.room_id)}
+                        </td>
+                        <td className="px-4 py-2 text-xs text-slate-600">
+                          {c.source_kind || "—"}
+                          {c.stream_display ? ` · ${c.stream_display}` : ""}
+                        </td>
                         <td className="px-4 py-2">
                           {c.is_active ? "Yes" : "No"}
                         </td>

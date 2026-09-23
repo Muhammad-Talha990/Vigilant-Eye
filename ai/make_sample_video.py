@@ -1,5 +1,5 @@
 """
-Build a short sample MP4 from still images (for offline PoC testing).
+Build a short sample MP4 from UFM-relevant stills (phone / smartwatch exam scenes).
 
 Usage:
   python ai/make_sample_video.py
@@ -17,22 +17,30 @@ def main() -> None:
     samples = root / "samples"
     out = samples / "sample_exam_clip.mp4"
 
-    # Prefer scenes that YOLO usually detects (person/bus), so validation can fire.
+    # Prefer clear phone/watch frames first (better for YOLO live demo)
     preferred = [
-        samples / "bus.jpg",
-        samples / "zidane.jpg",
+        samples / "phone_closeup.jpg",
+        samples / "phone_on_desk.jpg",
+        samples / "phone_under_desk.jpg",
+        samples / "phone_in_lap.jpg",
+        samples / "smartwatch_closeup.jpg",
+        samples / "smartwatch.jpg",
         samples / "exam_hall.jpg",
     ]
     images = [p for p in preferred if p.exists()]
     if not images:
+        images = sorted(samples.glob("*.jpg"))
+    if not images:
         raise FileNotFoundError("No sample images found in ai/samples")
 
-    first = cv2.imread(str(images[0]))
-    if first is None:
-        raise RuntimeError(f"Could not read {images[0]}")
-    height, width = first.shape[:2]
+    width, height = 1280, 720
     fps = 5
-    frames_per_image = 10  # each still shown for 2 seconds
+    # Longer dwell on clear phone frames so live persist can confirm
+    dwell = {
+        "phone_closeup.jpg": 25,
+        "phone_on_desk.jpg": 20,
+        "smartwatch_closeup.jpg": 15,
+    }
 
     writer = cv2.VideoWriter(
         str(out),
@@ -49,12 +57,14 @@ def main() -> None:
         if frame is None:
             continue
         frame = cv2.resize(frame, (width, height))
-        for _ in range(frames_per_image):
+        n = dwell.get(path.name, 12)
+        for _ in range(n):
             writer.write(frame)
             total_frames += 1
 
     writer.release()
     print(f"Created {out}")
+    print(f"scenes={[p.name for p in images]}")
     print(f"frames={total_frames}, fps={fps}, duration~{total_frames / fps:.1f}s")
 
 

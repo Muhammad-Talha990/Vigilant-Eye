@@ -1,5 +1,5 @@
 """
-Bridge confirmed AI detections -> portal alerts / UFM case drafts (PROTOTYPE).
+Bridge confirmed AI detections -> portal alerts / UFM case drafts.
 """
 
 from __future__ import annotations
@@ -13,12 +13,13 @@ from sqlalchemy.orm import Session
 from models.audit_log import AuditLog
 from models.detection import Detection
 from models.exam import Exam
-from models.notification import Notification
 from models.student import Student
 from models.ufm_case import UfmCase
 from models.user import User
+from evidence_auto import attach_detection_evidence_to_case
+from notify_helpers import create_notification, notify_student_for_case, notify_users_with_role
 
-# Classes / aliases that may auto-draft a case when --auto-draft is used.
+# Classes that may auto-draft when --auto-draft is used (confirmed only).
 UFM_AUTO_DRAFT_CLASSES = {
     "mobile_phone",
     "smart_watch",
@@ -28,9 +29,6 @@ UFM_AUTO_DRAFT_CLASSES = {
     "cell phone",
     "cellphone",
     "phone",
-    "suitcase",
-    "book",
-    "laptop",
 }
 
 VIOLATION_TYPE_MAP = {
@@ -42,13 +40,7 @@ VIOLATION_TYPE_MAP = {
     "cell phone": "MOBILE_PHONE",
     "cellphone": "MOBILE_PHONE",
     "phone": "MOBILE_PHONE",
-    "suitcase": "SUSPICIOUS_OBJECT",
-    "handbag": "SUSPICIOUS_OBJECT",
-    "backpack": "SUSPICIOUS_OBJECT",
-    "book": "NOTES_PAPER",
     "laptop": "ELECTRONIC_GADGET",
-    "keyboard": "ELECTRONIC_GADGET",
-    "person": "OTHER",
 }
 
 
@@ -58,8 +50,32 @@ def _next_case_number(db: Session) -> str:
     return f"UFM-{today}-{total + 1:04d}"
 
 
-def notify_detection_alert(db: Session, detection: Detection) -> int:
+def notify_detection_alert(
+    db: Session, detection: Detection, *, is_demo: bool = False
+) -> int:
     """Notify active HOD users about a confirmed detection. Returns count."""
+    if is_demo or getattr(detection, "is_demo", False):
+        # Demo alerts go only to the same role but marked — do not look like production
+        users = db.scalars(
+            select(User).where(User.role == "HOD", User.is_active.is_(True))
+        ).all()
+        title = "[DEMO] AI detection alert"
+        message = (
+            f"[TEST DATA] Confirmed '{detection.detection_type}' "
+            f"(conf={detection.confidence:.2f}) "
+            f"detection_id={detection.id} — not a production exam incident."
+        )
+        for user in users:
+            create_notification(
+                db,
+                user_id=user.id,
+                case_id=None,
+                type="DETECTION_ALERT_DEMO",
+                title=title,
+                message=message,
+            )
+        return len(users)
+
     users = db.scalars(
         select(User).where(User.role == "HOD", User.is_active.is_(True))
     ).all()
@@ -70,15 +86,13 @@ def notify_detection_alert(db: Session, detection: Detection) -> int:
         f"detection_id={detection.id}"
     )
     for user in users:
-        db.add(
-            Notification(
-                user_id=user.id,
-                case_id=None,
-                type="DETECTION_ALERT",
-                title=title,
-                message=message,
-                is_read=False,
-            )
+        create_notification(
+            db,
+            user_id=user.id,
+            case_id=None,
+            type="DETECTION_ALERT",
+            title=title,
+            message=message,
         )
     return len(users)
 
@@ -134,6 +148,10 @@ def create_draft_case_from_detection(
     db.add(case)
     db.flush()
 
+    attached = attach_detection_evidence_to_case(
+        db, detection_id=detection.id, case_id=case.id
+    )
+
     db.add(
         AuditLog(
             user_id=reported_by,
@@ -142,27 +160,33 @@ def create_draft_case_from_detection(
             entity_id=case.id,
             description=(
                 f"Draft {case.case_number} created from detection #{detection.id} "
-                f"({detection.detection_type})"
+                f"({detection.detection_type}); evidence_linked={attached}"
             ),
         )
     )
 
-    # Link notification to the new case for HODs
-    hods = db.scalars(
-        select(User).where(User.role == "HOD", User.is_active.is_(True))
-    ).all()
-    for hod in hods:
-        db.add(
-            Notification(
-                user_id=hod.id,
-                case_id=case.id,
-                type="CASE_DRAFT",
-                title="AI-created UFM case draft",
-                message=(
-                    f"{case.case_number} drafted from detection "
-                    f"'{detection.detection_type}'."
-                ),
-                is_read=False,
-            )
-        )
+    notify_users_with_role(
+        db,
+        role="HOD",
+        case_id=case.id,
+        type="CASE_DRAFT",
+        title="AI-created UFM case draft",
+        message=(
+            f"{case.case_number} drafted from detection "
+            f"'{detection.detection_type}'."
+        ),
+    )
+
+    student = db.get(Student, student_id)
+    notify_student_for_case(
+        db,
+        student=student,
+        case_id=case.id,
+        case_number=case.case_number,
+        title="UFM case draft created",
+        message=(
+            f"{case.case_number} was drafted from an AI detection involving "
+            f"your student record."
+        ),
+    )
     return case

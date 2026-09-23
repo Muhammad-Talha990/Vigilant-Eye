@@ -1,10 +1,10 @@
 # VigilantEye
 
-AI-assisted **Unfair Means (UFM)** detection PoC and institutional review portal for Air University (FYP prototype).
+AI-assisted **Unfair Means (UFM)** detection and institutional review portal for Air University (FYP submission build).
 
-Invigilators file cases → students clarify → HOD / DEC / Exam Dept / UFM Committee review → approved cases auto-hold results — with a full audit trail.
+Invigilators monitor live feeds → confirmed detections auto-capture evidence → cases with digital sign-off → students clarify → HOD / DEC / Exam Dept / UFM Committee review → approved cases auto-hold results — with portal notifications (optional SMTP / EMAIL_MOCK) and a full audit trail.
 
-**Full live demo steps:** [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md)
+**Demo steps:** [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) · **Scope map:** [docs/SCOPE_COVERAGE.md](docs/SCOPE_COVERAGE.md) · **Checklist:** [docs/EVALUATOR_CHECKLIST.md](docs/EVALUATOR_CHECKLIST.md)
 
 ---
 
@@ -15,7 +15,7 @@ Invigilators file cases → students clarify → HOD / DEC / Exam Dept / UFM Com
 | Frontend | React + Vite + Tailwind + React Router |
 | Backend | FastAPI + SQLAlchemy + JWT + bcrypt |
 | Database | PostgreSQL |
-| AI PoC | Ultralytics YOLO (pretrained) → `detections` table |
+| AI | Ultralytics YOLO → `detections` + auto evidence |
 
 ---
 
@@ -95,13 +95,15 @@ Student portal is linked to roll **`DEMO001`**. Create cases against that studen
 
 ## Core workflow (one line)
 
-`PENDING` → HOD FORWARD → `DEC_REVIEW` → DEC FORWARD → `EXAM_DEPARTMENT_REVIEW` → Exam FORWARD → `UFM_COMMITTEE_REVIEW` → APPROVE/REJECT → hold on approve.
+`PENDING` → (staff open) `UNDER_REVIEW` → HOD FORWARD → `DEC_REVIEW` → DEC FORWARD → `EXAM_DEPARTMENT_REVIEW` → Exam FORWARD → `UFM_COMMITTEE_REVIEW` → APPROVE/REJECT → hold on approve.
+
+Create case and each review require **digital sign-off** (typed full name + acknowledgment checkbox).
 
 ---
 
 ## Evaluator checklist
 
-Use during a viva / demo. Tick as you go.
+Use during a viva / demo. Tick as you go. Prefer [docs/EVALUATOR_CHECKLIST.md](docs/EVALUATOR_CHECKLIST.md).
 
 ### Environment
 
@@ -112,48 +114,51 @@ Use during a viva / demo. Tick as you go.
 ### Invigilator
 
 - [ ] Dashboard loads with live KPIs  
-- [ ] Create Case for **DEMO001** succeeds  
-- [ ] Evidence upload attaches to the case  
-- [ ] (Optional) Detections page shows AI-confirmed rows  
+- [ ] Live Monitoring demo clip produces a confirmed detection + auto evidence  
+- [ ] Create Case / draft case for **DEMO001** with sign-off  
+- [ ] Evidence **Open file** works on Case Detail  
 
 ### Student
 
-- [ ] `student@demo.com` sees only DEMO001 cases  
+- [ ] `student@demo.com` sees only DEMO001 cases (+ notification)  
 - [ ] Clarification submits and appears on case detail  
 - [ ] Help & Support page opens  
 
 ### Review chain
 
-- [ ] HOD can **FORWARD** from PENDING  
-- [ ] DEC can **FORWARD** from DEC_REVIEW  
-- [ ] Exam Dept can **FORWARD** to committee  
+- [ ] HOD can **FORWARD** (with sign-off) from PENDING / UNDER_REVIEW  
+- [ ] DEC → Exam → UFM with signed reviews  
 - [ ] UFM can **APPROVE** or **REJECT**  
 
 ### Aftermath
 
 - [ ] APPROVED case creates a result **HELD** / transcript **BLOCKED**  
 - [ ] Exam/UFM can **Release** a hold  
-- [ ] Audit Trail shows create / review / clarification / hold events (HOD+)  
+- [ ] Reports CSV export downloads  
+- [ ] Audit Trail shows create / sign / review / clarification / hold  
 
-### Honesty check (prototype scope)
+### Honesty check (submission scope)
 
 - [ ] Live Monitoring shown as MJPEG (webcam / sample clip / RTSP URL), not WebRTC mesh  
+- [ ] Sign-off described as typed name + ack (not PKI)  
+- [ ] Email = SMTP optional / EMAIL_MOCK otherwise  
 - [ ] YOLO described honestly (custom train and/or COCO fallback)  
-- [ ] Email / WebSockets / digital signatures = FUTURE  
+- [ ] SSO / SIS / PDF engine = FUTURE (see SCOPE_COVERAGE)  
 
 ---
 
 ## Prototype vs future
 
-| In this prototype | FUTURE |
-|-------------------|--------|
+| In this submission | FUTURE |
+|--------------------|--------|
 | JWT auth + RBAC | SSO / campus IdP |
-| Case workflow + reviews | Digital signatures |
-| Evidence files on disk | Secure evidence vault / CDN |
-| Portal notifications | Email / SMS / WebSockets |
+| Case workflow + digital sign-off (name/ack) | PKI / cryptographic e-sign |
+| Auto SNAPSHOT/CLIP + manual evidence | Cloud evidence vault / CDN |
+| Portal notifications + SMTP / EMAIL_MOCK | SMS / WebSockets push |
 | Student clarification (DEMO001 link) | Full SIS binding |
 | Result hold / release | ERP grade integration |
 | Audit log | Advanced forensics export |
+| Reports KPIs + CSV | PDF print engine |
 | Live MJPEG + YOLO → detections | Multi-cam WebRTC, stronger custom ML |
 
 ---
@@ -165,13 +170,28 @@ Use during a viva / demo. Tick as you go.
 cd backend
 .\venv\Scripts\Activate.ps1
 python seed_all_demo.py
+python migrate_submission_features.py
+
+# Smoke tests
+pytest -q
 
 # Frontend production build check
 cd frontend
 npm run build
 ```
 
-AI scripts live under `ai/` (`train_yolo.py`, `save_confirmed_to_db.py`, Live Monitoring uses the API).
+Optional email (otherwise logs `EMAIL_MOCK`):
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+SMTP_FROM=noreply@example.com
+SMTP_USE_TLS=true
+```
+
+AI scripts live under `ai/` (`train_yolo.py`, `save_confirmed_to_db.py`; Live Monitoring uses the API).
 
 ---
 

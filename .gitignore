@@ -15,9 +15,18 @@
 # AI weights / heavy outputs (tracked samples OK)
 **/weights/
 **/*.pt
+ai/runs/train/
+ai/dataset/ufm/images/
+ai/dataset/ufm/labels/
+ai/dataset/ufm/dataset/
+ai/dataset/_extracted_frames/
+backend/uploads/
 
-# OS / IDE
+# OS / IDE / archives
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.zip
+*.7z
+*.rar

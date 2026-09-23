@@ -20,5 +20,9 @@ class Detection(Base):
     confidence: Mapped[float] = mapped_column(Float)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Staff inbox: False = new / unseen alert
+    is_seen: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Demo / testing sessions — excluded from production queues by default
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     source_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     frame_index: Mapped[int | None] = mapped_column(Integer, nullable=True)

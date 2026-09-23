@@ -1,9 +1,5 @@
 import { NavLink } from "react-router-dom";
-import {
-  ROLE_LABELS,
-  SWITCHABLE_ROLES,
-  getNavForRole,
-} from "../config/navByRole";
+import { ROLE_LABELS, getNavForRole } from "../config/navByRole";
 import { useAuth } from "../context/AuthContext";
 
 function linkClass({ isActive }) {
@@ -40,10 +36,15 @@ export default function Sidebar({ open, badges = {}, onNavigate }) {
       >
         <div className="border-b border-slate-200 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Current Role
+            Signed in as
           </p>
-          <div className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-au-navy">
-            {ROLE_LABELS[role] || role}
+          <div className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2">
+            <p className="text-sm font-semibold text-au-navy">
+              {user?.name || "User"}
+            </p>
+            <p className="text-xs text-slate-500">
+              {ROLE_LABELS[role] || role}
+            </p>
           </div>
         </div>
 
@@ -56,14 +57,7 @@ export default function Sidebar({ open, badges = {}, onNavigate }) {
               className={linkClass}
               onClick={onNavigate}
             >
-              <span>
-                {item.label}
-                {item.soon ? (
-                  <span className="ml-2 text-[10px] font-normal text-slate-400">
-                    soon
-                  </span>
-                ) : null}
-              </span>
+              <span>{item.label}</span>
               {item.badgeKey && badges[item.badgeKey] > 0 ? (
                 <span className="rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
                   {badges[item.badgeKey]}
@@ -71,40 +65,6 @@ export default function Sidebar({ open, badges = {}, onNavigate }) {
               ) : null}
             </NavLink>
           ))}
-
-          {role !== "STUDENT" ? (
-            <div className="pt-4">
-              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Switch Dashboard
-              </p>
-              <div className="space-y-1">
-                {SWITCHABLE_ROLES.map((r) => {
-                  const active = r === role;
-                  return (
-                    <div
-                      key={r}
-                      className={[
-                        "rounded-lg px-3 py-2 text-sm",
-                        active
-                          ? "bg-white font-semibold text-au-navy shadow-sm"
-                          : "text-slate-400",
-                      ].join(" ")}
-                      title={
-                        active
-                          ? "Your current role"
-                          : "Log in with that demo account to open this dashboard"
-                      }
-                    >
-                      {ROLE_LABELS[r]}
-                      {!active ? (
-                        <span className="ml-2 text-[10px]">(other login)</span>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
         </nav>
 
         <div className="border-t border-slate-200 p-3 text-xs text-slate-500">

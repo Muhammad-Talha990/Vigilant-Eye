@@ -1,0 +1,29 @@
+# VigilantEye local stack (Postgres + API). Frontend: run npm separately or add a node service.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vigilant
+      POSTGRES_PASSWORD: vigilant
+      POSTGRES_DB: vigilant_eye
+    ports:
+      - "5432:5432"
+    volumes:
+      - ve_pg:/var/lib/postgresql/data
+
+  api:
+    build: .
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql+psycopg://vigilant:vigilant@db:5432/vigilant_eye
+      JWT_SECRET: change-me-in-production-please-32chars
+      LIVE_POSTURE: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./ai:/app/ai
+
+volumes:
+  ve_pg:

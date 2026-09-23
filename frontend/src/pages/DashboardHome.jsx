@@ -119,7 +119,7 @@ export default function DashboardHome() {
     role === "INVIGILATOR"
       ? "My Open Cases"
       : role === "STUDENT"
-        ? "UFM Cases (prototype list)"
+        ? "My UFM Cases"
         : "Your Review Queue";
 
   const queueAction =
@@ -412,9 +412,21 @@ export default function DashboardHome() {
               </div>
               <ul className="divide-y divide-slate-100">
                 {unread.slice(0, 5).map((n) => (
-                  <li key={n.id} className="px-4 py-3 text-sm">
-                    <p className="font-medium text-au-navy">{n.title}</p>
-                    <p className="text-slate-600">{n.message}</p>
+                  <li key={n.id}>
+                    <Link
+                      to={
+                        n.case_id
+                          ? `/app/cases/${n.case_id}`
+                          : "/app/notifications"
+                      }
+                      className="block px-4 py-3 text-sm hover:bg-slate-50"
+                    >
+                      <p className="font-medium text-au-navy">{n.title}</p>
+                      <p className="line-clamp-2 text-slate-600">{n.message}</p>
+                      {n.case_number ? (
+                        <p className="mt-1 text-xs text-au-blue">{n.case_number}</p>
+                      ) : null}
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -10,6 +10,7 @@ import {
   fetchClarifications,
   fetchEvidence,
   openEvidenceFile,
+  downloadEvidenceFile,
 } from "../services/api";
 
 export default function CaseDetailPage() {
@@ -24,6 +25,8 @@ export default function CaseDetailPage() {
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [signerName, setSignerName] = useState(user?.name || "");
+  const [signatureAck, setSignatureAck] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -51,19 +54,30 @@ export default function CaseDetailPage() {
     load();
   }, [caseId]);
 
+  useEffect(() => {
+    if (user?.name) setSignerName((prev) => prev || user.name);
+  }, [user?.name]);
+
   const actions = caseData
     ? availableReviewActions(user?.role, caseData.status)
     : [];
 
   async function runAction(action) {
     setActionError("");
+    if (!signatureAck || !signerName.trim()) {
+      setActionError("Digital sign-off (name + acknowledgment) is required.");
+      return;
+    }
     setBusy(true);
     try {
       await createCaseReview(caseId, {
         action,
         remarks: remarks.trim() || `${action} from portal`,
+        signer_name: signerName.trim(),
+        signature_ack: true,
       });
       setRemarks("");
+      setSignatureAck(false);
       await load();
     } catch (err) {
       setActionError(err.message || "Review action failed");
@@ -127,17 +141,62 @@ export default function CaseDetailPage() {
               <dd className="font-medium">{caseData.violation_type}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Student (DB id)</dt>
-              <dd className="font-medium">{caseData.student_id}</dd>
+              <dt className="text-slate-500">Student</dt>
+              <dd className="font-medium">
+                {caseData.student_name || "—"}{" "}
+                <span className="text-slate-500">
+                  ({caseData.student_roll || caseData.student_id})
+                </span>
+              </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Exam (DB id)</dt>
-              <dd className="font-medium">{caseData.exam_id}</dd>
+              <dt className="text-slate-500">Department / Program</dt>
+              <dd className="font-medium">
+                {caseData.student_department || "—"}
+                {caseData.student_program
+                  ? ` · ${caseData.student_program}`
+                  : ""}
+              </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Reported by (user id)</dt>
-              <dd className="font-medium">{caseData.reported_by}</dd>
+              <dt className="text-slate-500">Exam</dt>
+              <dd className="font-medium">
+                {caseData.exam_course_code || "—"}{" "}
+                {caseData.exam_course_name
+                  ? `— ${caseData.exam_course_name}`
+                  : ""}
+              </dd>
             </div>
+            <div>
+              <dt className="text-slate-500">Exam date / Room</dt>
+              <dd className="font-medium">
+                {caseData.exam_date || "—"}
+                {caseData.room_number
+                  ? ` · Room ${caseData.room_number}`
+                  : ""}
+                {caseData.room_building ? ` (${caseData.room_building})` : ""}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Reported by</dt>
+              <dd className="font-medium">
+                {caseData.reporter_name || `User #${caseData.reported_by}`}
+                {caseData.reporter_role
+                  ? ` · ${caseData.reporter_role}`
+                  : ""}
+              </dd>
+            </div>
+            {caseData.signer_name ? (
+              <div className="sm:col-span-2">
+                <dt className="text-slate-500">Create sign-off</dt>
+                <dd className="font-medium">
+                  {caseData.signer_name}
+                  {caseData.signed_at
+                    ? ` · ${new Date(caseData.signed_at).toLocaleString()}`
+                    : ""}
+                </dd>
+              </div>
+            ) : null}
             <div className="sm:col-span-2">
               <dt className="text-slate-500">Description</dt>
               <dd className="mt-1 whitespace-pre-wrap text-slate-800">
@@ -191,6 +250,29 @@ export default function CaseDetailPage() {
                 placeholder="Optional remarks for this action"
                 className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
               />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Digital sign-off
+                </p>
+                <input
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                  placeholder="Type your full name"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+                <label className="flex items-start gap-2 text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={signatureAck}
+                    onChange={(e) => setSignatureAck(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    I certify this review action and accept audit recording of my
+                    name and timestamp.
+                  </span>
+                </label>
+              </div>
               {actionError ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {actionError}
@@ -261,6 +343,14 @@ export default function CaseDetailPage() {
                     {r.action} · {r.reviewer_role}
                   </p>
                   <p className="text-slate-600">{r.remarks || "—"}</p>
+                  {r.signer_name ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Signed: {r.signer_name}
+                      {r.signed_at
+                        ? ` · ${new Date(r.signed_at).toLocaleString()}`
+                        : ""}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-xs text-slate-400">
                     {r.created_at ? new Date(r.created_at).toLocaleString() : ""}
                   </p>
@@ -283,27 +373,52 @@ export default function CaseDetailPage() {
               <li key={e.id} className="px-5 py-3 text-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-au-navy">{e.evidence_type}</p>
+                    <p className="font-medium text-au-navy">
+                      {e.evidence_type}
+                      {e.detection_id ? (
+                        <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-violet-800">
+                          AI detection #{e.detection_id}
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="truncate text-xs text-slate-500">{e.file_path}</p>
                     <p className="text-xs text-slate-400">
                       {e.created_at
                         ? new Date(e.created_at).toLocaleString()
                         : ""}
+                      {e.confidence != null
+                        ? ` · conf ${(e.confidence * 100).toFixed(0)}%`
+                        : ""}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-au-blue hover:underline"
-                    onClick={async () => {
-                      try {
-                        await openEvidenceFile(e.id);
-                      } catch (err) {
-                        setError(err.message || "Could not open evidence");
-                      }
-                    }}
-                  >
-                    Open file
-                  </button>
+                  <div className="flex shrink-0 flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-au-blue hover:underline"
+                      onClick={async () => {
+                        try {
+                          await openEvidenceFile(e.id);
+                        } catch (err) {
+                          setError(err.message || "Could not open evidence");
+                        }
+                      }}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-slate-700 hover:underline"
+                      onClick={async () => {
+                        try {
+                          await downloadEvidenceFile(e.id);
+                        } catch (err) {
+                          setError(err.message || "Could not download evidence");
+                        }
+                      }}
+                    >
+                      Download
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}

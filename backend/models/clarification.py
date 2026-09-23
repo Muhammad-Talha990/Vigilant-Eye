@@ -7,7 +7,7 @@ from models.base import Base
 
 
 class Clarification(Base):
-    """Student explanation submitted for a UFM case (prototype)."""
+    """Student explanation submitted for a UFM case."""
 
     __tablename__ = "clarifications"
 

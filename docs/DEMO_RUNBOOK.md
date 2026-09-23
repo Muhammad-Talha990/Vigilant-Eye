@@ -61,11 +61,13 @@ Login page: click a role card to **sign in** (password `Demo@123`).
    - LIVE tile shows MJPEG + YOLO boxes  
    - Persist writes confirmed UFM labels to DB  
    - Alternate: **Demo: webcam** if a laptop camera is available
-4. Open **Detections & Alerts** → confirm rows → **Create Case** / **File case**
-5. Student: **DEMO001**, exam **CS101**, violation matching detection
-6. Optional: **Evidence Library** → upload a small image
+4. Open **Detections & Alerts** → **Create draft case** (or File case)  
+   - Auto SNAPSHOT/CLIP from persist attaches when drafting  
+5. On Create Case: type full name + **I certify…** digital sign-off  
+6. Student: **DEMO001**, exam **CS101**, violation matching detection  
+7. Optional: **Evidence Library** → upload a small image; use **Open file** on Case Detail  
 
-**Talking point:** Case starts as **PENDING**; HOD is notified in-portal. Live video is backend MJPEG (webcam / file / RTSP URL) — not browser-native WebRTC.
+**Talking point:** Case starts as **PENDING**; HOD is notified in-portal (and EMAIL_MOCK / SMTP if configured). Live video is backend MJPEG — not browser-native WebRTC. Sign-off is typed name + ack (not PKI).
 
 ### B. Student — clarification
 
@@ -77,16 +79,17 @@ Login page: click a role card to **sign in** (password `Demo@123`).
 
 | Step | Login as | Action | New status |
 |------|----------|--------|------------|
-| 1 | `hod@demo.com` | **FORWARD** | `DEC_REVIEW` |
-| 2 | `dec@demo.com` | **FORWARD** | `EXAM_DEPARTMENT_REVIEW` |
-| 3 | `examdept@demo.com` | **FORWARD** | `UFM_COMMITTEE_REVIEW` |
-| 4 | `ufm@demo.com` | **APPROVE** (or REJECT) | `APPROVED` / `REJECTED` |
+| 0 | `hod@demo.com` | Open case (optional) | `UNDER_REVIEW` |
+| 1 | `hod@demo.com` | **FORWARD** + sign-off | `DEC_REVIEW` |
+| 2 | `dec@demo.com` | **FORWARD** + sign-off | `EXAM_DEPARTMENT_REVIEW` |
+| 3 | `examdept@demo.com` | **FORWARD** + sign-off | `UFM_COMMITTEE_REVIEW` |
+| 4 | `ufm@demo.com` | **APPROVE** (or REJECT) + sign-off | `APPROVED` / `REJECTED` |
 
 On **APPROVE**: result hold (HELD / BLOCKED) → show **Result Control** → optional **Release**.
 
 ### D. Audit Trail
 
-As HOD / DEC / Exam / UFM → **Audit Trail** for `CASE_CREATED`, `CLARIFICATION_SUBMITTED`, `CASE_REVIEW_*`, `RESULT_HOLD_CREATED`.
+As HOD / DEC / Exam / UFM → **Audit Trail** for `CASE_CREATED`, `CASE_SIGNED`, `CLARIFICATION_SUBMITTED`, `CASE_REVIEW_*`, `RESULT_HOLD_CREATED`.
 
 ---
 
@@ -113,7 +116,7 @@ Then refresh **Detections & Alerts**.
 | Invigilator | Live Monitoring CTA + detections + my open cases |
 | HOD / DEC / Exam / UFM | Queue KPIs + charts |
 | Student | Cases + clarification CTA |
-| Reports | Summaries (PDF export not yet) |
+| Reports | KPIs + **Export cases CSV** (PDF = FUTURE) |
 | Live Monitoring | MJPEG live tiles (webcam / clip / RTSP) |
 
 ---
@@ -123,21 +126,26 @@ Then refresh **Detections & Alerts**.
 ### In this build
 
 - Auth + RBAC (JWT)
-- UFM case workflow with role actions
-- Evidence upload
-- Portal notifications + student clarification
+- UFM case workflow with role actions + digital sign-off (name/ack)
+- Auto evidence (snapshot/clip) from confirmed detections
+- Evidence upload + Open file
+- Portal notifications + optional SMTP / EMAIL_MOCK
+- Student clarification
 - Result hold on approve + release
 - Audit log
 - Live Monitoring (MJPEG + optional YOLO + persist)
-- AI detections → portal
+- Enriched cases (student / exam / room)
+- Reports CSV export
 - Role-based React portal
 
 ### Still future / limited
 
 - Production multi-camera WebRTC grid
-- Email / SMS push
-- Strong custom YOLO (needs finished GPU/CPU train)
-- Digital signatures / full SIS / PDF reports
+- Campus SSO / WebSockets push
+- Strong custom YOLO (needs finished GPU train; COCO/`best.pt` fallback OK)
+- PKI signatures / full SIS / PDF print engine
+
+See [SCOPE_COVERAGE.md](SCOPE_COVERAGE.md) for the full protocol map.
 
 ---
 

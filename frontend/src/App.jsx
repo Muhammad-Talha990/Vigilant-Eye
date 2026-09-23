@@ -14,6 +14,7 @@ import HelpPage from "./pages/HelpPage";
 import Login from "./pages/Login";
 import MasterDataPage from "./pages/MasterDataPage";
 import MonitoringPage from "./pages/MonitoringPage";
+import DemoMonitoringPage from "./pages/DemoMonitoringPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import ReportsPage from "./pages/ReportsPage";
 import ResultControlsPage from "./pages/ResultControlsPage";
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="result-controls" element={<ResultControlsPage />} />
         <Route path="audit" element={<AuditTrailPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
+        <Route path="monitoring/demo" element={<DemoMonitoringPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="clarification" element={<ClarificationPage />} />
         <Route path="help" element={<HelpPage />} />

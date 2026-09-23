@@ -281,14 +281,15 @@ export function quickActionsForRole(role) {
   }
   if (role === "HOD") {
     return [
+      { to: "/app/monitoring", label: "Live Monitoring", tone: "emerald" },
       {
         to: "/app/cases?status=PENDING",
         label: "Cases for Review",
         tone: "violet",
       },
       { to: "/app/detections", label: "Detections", tone: "orange" },
-      { to: "/app/evidence", label: "Evidence", tone: "emerald" },
-      { to: "/app/audit", label: "Audit Trail", tone: "sky" },
+      { to: "/app/evidence", label: "Evidence", tone: "sky" },
+      { to: "/app/audit", label: "Audit Trail", tone: "slate" },
       ...base,
     ];
   }
