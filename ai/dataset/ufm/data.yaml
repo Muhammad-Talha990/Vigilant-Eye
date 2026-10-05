@@ -1,4 +1,6 @@
-# VigilantEye UFM dataset (imported from Roboflow)
+# VigilantEye UFM dataset (imported from Roboflow) — DATASET VERSION: ufm-merge-6cls
+# WARNING: This 6-class id map does NOT match historical ufm_custom/best.pt (5-class).
+# Target 5-class map: data_5cls_target.yaml. Re-train or remap before claiming custom mAP.
 path: .
 train: images/train
 val: images/val

@@ -4,10 +4,11 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from time_utils import utc_now
 
 
 class Clarification(Base):
-    """Student explanation submitted for a UFM case (prototype)."""
+    """Student explanation submitted for a UFM case."""
 
     __tablename__ = "clarifications"
 
@@ -16,4 +17,4 @@ class Clarification(Base):
     student_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     statement: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="SUBMITTED")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)

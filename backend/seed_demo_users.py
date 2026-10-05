@@ -5,6 +5,7 @@ Usage (from backend folder, venv active):
     python seed_demo_users.py
 
 Default password for all demo users: Demo@123
+(Demo accounts use an 8+ character password that satisfies production UserCreate policy.)
 
 Ensures student roll DEMO001 exists and is linked to student@demo.com via user_id.
 """
@@ -30,7 +31,11 @@ DEMO_USERS = [
 ]
 
 
-def seed() -> None:
+def seed(*, quiet: bool = False) -> None:
+    def log(msg: str) -> None:
+        if not quiet:
+            print(msg)
+
     db = SessionLocal()
     try:
         created = 0
@@ -38,7 +43,7 @@ def seed() -> None:
         for name, email, role in DEMO_USERS:
             existing = db.scalar(select(User).where(User.email == email))
             if existing:
-                print(f"SKIP  {email} (already exists, role={existing.role})")
+                log(f"SKIP  {email} (already exists, role={existing.role})")
                 skipped += 1
                 continue
 
@@ -51,7 +56,7 @@ def seed() -> None:
                     is_active=True,
                 )
             )
-            print(f"CREATE {email}  role={role}")
+            log(f"CREATE {email}  role={role}")
             created += 1
 
         db.flush()
@@ -71,7 +76,7 @@ def seed() -> None:
                 user_id=student_user.id if student_user else None,
             )
             db.add(linked)
-            print(
+            log(
                 f"CREATE student roll {DEMO_STUDENT_ROLL} "
                 f"(user_id={student_user.id if student_user else None})"
             )
@@ -85,30 +90,42 @@ def seed() -> None:
             )
             if other:
                 other.user_id = None
-                print(
+                log(
                     f"UNLINK student id={other.id} from user_id={student_user.id}"
                 )
             linked.user_id = student_user.id
-            print(
+            log(
                 f"LINK  roll {DEMO_STUDENT_ROLL} -> {DEMO_STUDENT_EMAIL} "
                 f"(user_id={student_user.id})"
             )
         else:
-            print(
+            log(
                 f"SKIP  student roll {DEMO_STUDENT_ROLL} "
                 f"(id={linked.id}, user_id={linked.user_id})"
             )
 
         db.commit()
-        print()
-        print(f"Done. created={created}, skipped={skipped}")
-        print(f"Password for all demo accounts: {DEMO_PASSWORD}")
-        print(
+        log("")
+        log(f"Done. created={created}, skipped={skipped}")
+        # Credentials are documented in README — never print passwords in logs.
+        log(
             f"Portal link: {DEMO_STUDENT_EMAIL} <-> roll {DEMO_STUDENT_ROLL} via user_id"
         )
+        log("Demo account password: see README (not printed here).")
     finally:
         db.close()
 
 
 if __name__ == "__main__":
+    import sys
+
+    from app_config import demo_seed_enabled
+
+    if not demo_seed_enabled():
+        print(
+            "Refusing to seed demo users: production mode without "
+            "ENABLE_DEMO_SEED=1. Development/viva: unset APP_ENV or set "
+            "APP_ENV=development. Explicit lab: ENABLE_DEMO_SEED=1."
+        )
+        sys.exit(1)
     seed()

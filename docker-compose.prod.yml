@@ -1,0 +1,100 @@
+# VigilantEye PRODUCTION stack — standalone (does NOT merge with docker-compose.yml).
+#
+# Why standalone?
+# Compose overlays APPEND ports/volumes lists. Merging with the development
+# compose previously left Vite :5173, source binds, and node_modules volumes
+# on the "production" frontend. This file defines production topology only.
+#
+# Usage (from project root):
+#   1. Copy .env.production.example → .env.production and fill real values
+#   2. docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+#
+# Development / viva continues to use:
+#   docker compose up --build
+#   OR  .\start-dev.ps1
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vigilant_eye}
+      POSTGRES_USER: ${POSTGRES_USER:-vigilant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    ports:
+      # Optional host mapping for ops/backup only — not required for app traffic.
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
+    volumes:
+      - ve_pg_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build: .
+    image: vigilanteye-api:prod
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vigilant}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vigilant_eye}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.production}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      APP_ENV: ${APP_ENV:-production}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-0}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS (comma-separated HTTPS origins)}
+      ENABLE_DEMO_SEED: ${ENABLE_DEMO_SEED:-0}
+      AUTH_MODE: ${AUTH_MODE:-google}
+      PASSWORD_LOGIN_ENABLED: ${PASSWORD_LOGIN_ENABLED:-0}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID for production Google Sign-In}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-1}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-VigilantEye}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-15}
+      PORTAL_BASE_URL: ${PORTAL_BASE_URL:-}
+      LIVE_POSTURE: ${LIVE_POSTURE:-1}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    volumes:
+      # Evidence persistence only — no live source bind of ./ai or ./backend.
+      - ve_uploads_prod:/app/backend/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 180s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:?Set VITE_API_URL to the browser-reachable API URL}
+        VITE_ENABLE_DEMO_HELPERS: "0"
+    image: vigilanteye-frontend:prod
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_HOST_PORT:-8080}:80"
+    # No source mounts — nginx serves baked dist/ from the image.
+    restart: unless-stopped
+
+volumes:
+  ve_pg_prod:
+  ve_uploads_prod:

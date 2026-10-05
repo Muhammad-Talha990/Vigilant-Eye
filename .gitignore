@@ -1,16 +1,30 @@
-# Secrets
+# Compose / tooling — never commit live secrets
 .env
 **/.env
+.env.*
 !**/.env.example
+!**/.env.*.example
+!**/.env.production.example
 
 # Python
 **/__pycache__/
 **/*.py[cod]
 **/venv/
+**/.pytest_cache/
 
 # Node
 **/node_modules/
 **/dist/
+
+# Uploads / local evidence (keep directory via .gitkeep if present)
+backend/uploads/**
+!backend/uploads/**/.gitkeep
+
+# Database backups / restore scratch (never commit dumps)
+backups/
+**/*.dump
+**/*.sql.gz
+**/pg_restore_tmp/
 
 # AI weights / heavy outputs (tracked samples OK)
 **/weights/
@@ -21,3 +35,12 @@
 Thumbs.db
 .vscode/
 .idea/
+
+# Local scratch / pytest capture logs (never commit)
+_ai*.txt
+_p2*.txt
+_baseline*.txt
+backend/openapi_live.json
+
+# AI training run artifacts (large / regenerable)
+ai/runs/

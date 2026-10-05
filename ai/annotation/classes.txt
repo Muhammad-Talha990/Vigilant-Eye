@@ -1,0 +1,5 @@
+mobile_phone
+smart_watch
+normal_watch
+notes_paper
+electronic_gadget

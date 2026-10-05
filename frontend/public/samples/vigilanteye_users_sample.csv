@@ -1,0 +1,4 @@
+email,role,name,student_roll
+invigilator.example@gmail.com,INVIGILATOR,Example Invigilator,
+hod.example@gmail.com,HOD,Example HOD,
+student.example@students.au.edu.pk,STUDENT,Example Student,ROLL001

@@ -1,31 +1,42 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-export default function Header({ unreadCount = 0, onToggleSidebar }) {
+export default function Header({
+  unreadCount = 0,
+  onToggleSidebar,
+  sidebarOpen = false,
+}) {
   const { user, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-au-navy px-4 text-white shadow-sm">
+    <header
+      data-portal-chrome
+      className="app-chrome z-30 flex h-14 shrink-0 items-center justify-between border-b border-au-navy-deep bg-au-navy px-4 text-white"
+    >
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onToggleSidebar}
           className="rounded-md p-2 hover:bg-white/10 lg:hidden"
-          aria-label="Toggle sidebar"
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+          aria-expanded={sidebarOpen}
+          aria-controls="portal-sidebar"
         >
           <span className="block h-0.5 w-5 bg-white" />
           <span className="mt-1 block h-0.5 w-5 bg-white" />
           <span className="mt-1 block h-0.5 w-5 bg-white" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-sm font-bold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-white/15 text-xs font-bold tracking-wide">
             AU
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-300">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-300">
               Air University
             </p>
-            <p className="text-sm font-semibold leading-tight">UFM Web Portal</p>
+            <p className="text-sm font-semibold leading-tight">
+              VigilantEye · UFM Portal
+            </p>
           </div>
         </div>
       </div>
@@ -33,7 +44,12 @@ export default function Header({ unreadCount = 0, onToggleSidebar }) {
       <div className="flex items-center gap-3 sm:gap-4">
         <Link
           to="/app/notifications"
-          className="relative rounded-full p-2 hover:bg-white/10"
+          className="relative rounded-full p-2 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          aria-label={
+            unreadCount > 0
+              ? `Notifications, ${unreadCount} unread`
+              : "Notifications"
+          }
           title="Notifications"
         >
           <svg
@@ -45,21 +61,30 @@ export default function Header({ unreadCount = 0, onToggleSidebar }) {
             <path d="M9 17a3 3 0 0 0 6 0" />
           </svg>
           {unreadCount > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4">
+            <span
+              className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4"
+              aria-hidden
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           ) : null}
         </Link>
 
-        <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium leading-tight">{user?.name}</p>
-          <p className="text-xs text-slate-300">{user?.role?.replaceAll("_", " ")}</p>
+        <div className="hidden max-w-[14rem] text-right sm:block">
+          <p className="truncate text-sm font-medium leading-tight" title={user?.name || ""}>
+            {user?.name}
+          </p>
+          <p className="truncate text-xs text-slate-300" title={user?.email || ""}>
+            <span className="mr-1 inline-flex rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+              {(user?.role || "").replaceAll("_", " ") || "—"}
+            </span>
+          </p>
         </div>
 
         <button
           type="button"
           onClick={logout}
-          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
+          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
           Logout
         </button>

@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, EmailStr, Field
+
+from schemas.utc_datetime import UtcDateTime
 
 
 class UserCreate(BaseModel):
@@ -8,7 +8,8 @@ class UserCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    password: str = Field(min_length=4, max_length=100)
+    # Production minimum: 8 characters. Demo seed password Demo@123 satisfies this.
+    password: str = Field(min_length=8, max_length=100)
     role: str = Field(min_length=1, max_length=50)
 
 
@@ -20,6 +21,6 @@ class UserOut(BaseModel):
     email: str
     role: str
     is_active: bool
-    created_at: datetime
+    created_at: UtcDateTime
 
     model_config = {"from_attributes": True}

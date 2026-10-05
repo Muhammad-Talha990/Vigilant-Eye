@@ -4,7 +4,7 @@ VigilantEye — YOLO detector (custom UFM weights preferred, COCO fallback).
 Usage (from project root, with backend venv active):
   cd "D:\\BS CS\\Vigilant Eye"
   .\\backend\\venv\\Scripts\\Activate.ps1
-  python ai/test_detector.py --source ai/samples/bus.jpg
+  python ai/test_detector.py --source ai/samples/phone_under_desk.jpg
 
 Weight selection (automatic unless --weights given):
   1. ai/runs/train/ufm_custom/weights/best.pt  (after train_yolo.py)

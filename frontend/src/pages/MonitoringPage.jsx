@@ -1,10 +1,20 @@
 /**
- * Live Monitoring — FYP demo page.
- * Webcam / sample clip / RTSP via backend MJPEG + optional YOLO + DB persist.
+ * Live Monitoring — production screen.
+ * Start Monitoring always enables AI detection + validated incident persistence.
+ * Demo/testing controls live on /app/monitoring/demo.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import PageHeader from "../components/PageHeader";
+import { DEMO_HELPERS_ENABLED } from "../config/demoMode";
 import {
+  MASTER_DATA_VIEW_ROLES,
+  MONITOR_ROLES,
+  roleIn,
+} from "../config/roleAccess";
+import { useAuth } from "../context/AuthContext";
+import {
+  fetchAuthConfig,
   fetchCameras,
   fetchLiveStatus,
   liveMjpegUrl,
@@ -12,19 +22,47 @@ import {
   stopLiveCamera,
 } from "../services/api";
 
-const SAMPLE_CLIP = "ai/samples/sample_exam_clip.mp4";
+function aiBadge(status) {
+  const map = {
+    active: { label: "AI Active", className: "bg-emerald-600" },
+    starting: { label: "AI Starting", className: "bg-sky-600" },
+    unavailable: { label: "AI Unavailable", className: "bg-slate-500" },
+    error: { label: "AI Error", className: "bg-rose-600" },
+    idle: { label: "AI Idle", className: "bg-slate-400" },
+  };
+  return map[status] || map.idle;
+}
 
 export default function MonitoringPage() {
+  const { user } = useAuth();
   const [cameras, setCameras] = useState([]);
   const [sessions, setSessions] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
-  const [detectById, setDetectById] = useState({});
-  const [persistById, setPersistById] = useState({});
-  const [overrideById, setOverrideById] = useState({});
   const [streamKey, setStreamKey] = useState({});
   const [toast, setToast] = useState("");
+
+  const [demoHelpers, setDemoHelpers] = useState(DEMO_HELPERS_ENABLED);
+  const canControl = roleIn(user?.role, MONITOR_ROLES);
+  const canDemo = demoHelpers && DEMO_HELPERS_ENABLED && canControl;
+  const canOpenExamSetup = roleIn(user?.role, MASTER_DATA_VIEW_ROLES);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAuthConfig()
+      .then((cfg) => {
+        if (!cancelled) {
+          setDemoHelpers(Boolean(cfg?.demo_helpers_enabled));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDemoHelpers(DEMO_HELPERS_ENABLED);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -34,8 +72,9 @@ export default function MonitoringPage() {
         map[s.camera_id] = s;
       }
       setSessions(map);
+      return map;
     } catch {
-      /* ignore polling errors */
+      return {};
     }
   }, []);
 
@@ -67,47 +106,52 @@ export default function MonitoringPage() {
     [sessions]
   );
 
-  const sampleCam = useMemo(
-    () =>
-      cameras.find((c) =>
-        String(c.stream_url || "").includes("sample_exam_clip")
-      ) || cameras[0],
-    [cameras]
-  );
+  if (!canControl) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
 
-  async function handleStart(cam, sourceOverride = null, opts = {}) {
+  if (user?.role === "STUDENT") {
+    return <Navigate to="/app/help" replace />;
+  }
+
+  async function handleStart(cam) {
     setBusyId(cam.id);
     setError("");
     setToast("");
     try {
-      const detect =
-        opts.detect !== undefined
-          ? opts.detect
-          : detectById[cam.id] !== false;
-      const persist =
-        opts.persist !== undefined
-          ? opts.persist
-          : Boolean(persistById[cam.id]);
-      const override =
-        sourceOverride ??
-        (overrideById[cam.id] || "").trim() ||
-        null;
-      const res = await startLiveCamera(cam.id, {
-        detect,
-        persist,
-        source_override: override,
-      });
+      const res = await startLiveCamera(cam.id, { mode: "production" });
       setStreamKey((p) => ({ ...p, [cam.id]: Date.now() }));
-      setDetectById((p) => ({ ...p, [cam.id]: detect }));
-      setPersistById((p) => ({ ...p, [cam.id]: persist }));
-      await refreshStatus();
+      // Poll briefly so webcam open failures are not toasted as success
+      let map = await refreshStatus();
+      for (let i = 0; i < 6; i += 1) {
+        const s = map[cam.id];
+        if (s?.running || s?.error) break;
+        await new Promise((r) => setTimeout(r, 400));
+        map = await refreshStatus();
+      }
+      const s = map[cam.id] || {};
+      if (s.error && !s.running) {
+        setError(s.error);
+        setToast("");
+        return;
+      }
+      if (!s.running && !res.running) {
+        setError(
+          res.error ||
+            "Camera did not start. Check the source in Master Data (try an approved sample clip if no webcam is connected)."
+        );
+        return;
+      }
+      const ai = s.ai_status || res.ai_status || "starting";
       setToast(
-        `Live on ${cam.name} · YOLO ${detect ? "on" : "off"} · mode ${
-          res.weights_mode || "—"
-        }`
+        `Monitoring started on ${cam.name}. AI: ${ai}${
+          s.model_ready || res.model_ready
+            ? ""
+            : " (model still loading or degraded)"
+        }. Validated incidents will save automatically.`
       );
     } catch (err) {
-      setError(err.message || "Failed to start live session");
+      setError(err.message || "Failed to start monitoring");
     } finally {
       setBusyId(null);
     }
@@ -119,94 +163,105 @@ export default function MonitoringPage() {
     try {
       await stopLiveCamera(cam.id);
       await refreshStatus();
-      setToast(`Stopped ${cam.name}`);
+      setToast(`Stopped monitoring ${cam.name}`);
     } catch (err) {
-      setError(err.message || "Failed to stop live session");
+      setError(err.message || "Failed to stop monitoring");
     } finally {
       setBusyId(null);
     }
   }
 
-  async function runDemoClip() {
-    if (!sampleCam) {
-      setError("No cameras found. Run: python seed_demo_cameras.py");
-      return;
-    }
-    await handleStart(sampleCam, SAMPLE_CLIP, { detect: true, persist: true });
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-slate-500">Home / Live Monitoring</p>
-          <h1 className="text-2xl font-semibold text-au-navy">Live Monitoring</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Live MJPEG from webcam, sample clip, or RTSP (backend proxy). Enable
-            YOLO + Persist to write confirmed alerts into Detections.
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm">
-          Active sessions:{" "}
-          <span className="font-semibold text-au-navy">{activeCount}</span>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-        <p className="font-semibold">FYP demo path</p>
-        <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sky-900/90">
-          <li>
-            Click <strong>Demo: sample clip + detect</strong> (or Start webcam).
-          </li>
-          <li>Watch boxes / labels on the LIVE tile.</li>
-          <li>
-            Open{" "}
-            <Link to="/app/detections" className="font-semibold underline">
-              Detections & Alerts
-            </Link>{" "}
-            → then{" "}
-            <Link to="/app/cases/new" className="font-semibold underline">
-              Create Case
-            </Link>{" "}
-            for DEMO001.
-          </li>
-        </ol>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={!sampleCam || busyId != null}
-            onClick={runDemoClip}
-            className="rounded-lg bg-au-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-          >
-            Demo: sample clip + detect
-          </button>
-          {sampleCam ? (
-            <button
-              type="button"
-              disabled={busyId != null}
-              onClick={() =>
-                handleStart(sampleCam, "webcam:0", {
-                  detect: true,
-                  persist: false,
-                })
-              }
-              className="rounded-lg border border-sky-300 bg-white px-3 py-1.5 text-xs font-semibold text-sky-900 hover:bg-sky-100 disabled:opacity-50"
-            >
-              Demo: webcam (no persist)
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        breadcrumb="Home / Live Monitoring"
+        title="Live Examination Monitoring"
+        description="Real-time examination feeds, AI-assisted detections, and confirmed monitoring events."
+        actions={
+          <>
+            <div className="portal-card px-4 py-2 text-sm">
+              Active:{" "}
+              <span className="font-semibold tabular-nums text-au-navy">
+                {activeCount}
+              </span>
+            </div>
+            {canDemo ? (
+              <Link
+                to="/app/monitoring/demo"
+                className="btn-secondary btn-sm border-amber-300 bg-amber-50 text-amber-900"
+              >
+                Demo / Testing Mode
+              </Link>
+            ) : null}
+          </>
+        }
+      />
 
       {toast ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800"
+        >
           {toast}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {error}
+        </div>
+      ) : null}
+
+      {activeCount > 0 ? (
+        <div className="portal-card space-y-2 px-4 py-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            AI engine status
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+            {(() => {
+              const live = Object.values(sessions).find((s) => s.running);
+              if (!live) return <span>No active inference session</span>;
+              const ms = live.infer_latency_ms;
+              const fps = live.infer_fps;
+              return (
+                <>
+                  <span>
+                    Model:{" "}
+                    <span className="font-semibold text-slate-800">
+                      {live.model_version || live.weights_mode || "—"}
+                    </span>
+                  </span>
+                  <span>
+                    Device:{" "}
+                    <span className="font-semibold text-slate-800">
+                      {live.device || "cpu"}
+                    </span>
+                  </span>
+                  <span>
+                    Inference:{" "}
+                    <span className="font-semibold text-slate-800">
+                      {ms != null ? `${ms} ms` : "—"}
+                      {fps != null ? ` · ~${fps} FPS` : ""}
+                    </span>
+                  </span>
+                  <span>
+                    Status:{" "}
+                    <span className="font-semibold text-slate-800">
+                      {aiBadge(live.ai_status || "idle").label}
+                    </span>
+                  </span>
+                </>
+              );
+            })()}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Detection confidence is model certainty for the detected class — not
+            a measure of student guilt. Confirmed AI events still require human
+            review before any UFM case action.
+          </p>
         </div>
       ) : null}
 
@@ -216,34 +271,57 @@ export default function MonitoringPage() {
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950 shadow-sm">
           <p className="font-semibold">No cameras registered</p>
           <p className="mt-1">
-            From the backend folder run{" "}
-            <code className="rounded bg-white px-1">python seed_demo_cameras.py</code>{" "}
-            (or add a room/camera in{" "}
-            <Link to="/app/master-data" className="font-semibold text-au-blue">
-              Master Data
-            </Link>{" "}
-            as HOD / Exam Dept), then refresh.
+            {canOpenExamSetup ? (
+              <>
+                Authorized staff can register cameras under{" "}
+                <Link
+                  to="/app/master-data"
+                  className="font-semibold text-au-blue"
+                >
+                  Exam Setup
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                No cameras are registered for monitoring. Ask an authorized
+                administrator to provision camera records before starting a
+                live session.
+              </>
+            )}
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {cameras.map((cam) => {
             const sess = sessions[cam.id];
             const running = Boolean(sess?.running);
-            const detectOn = detectById[cam.id] !== false;
-            const persistOn = Boolean(persistById[cam.id]);
+            const camFailed =
+              Boolean(sess?.error) && !running;
             const busy = busyId === cam.id;
             const mjpeg =
               running &&
               liveMjpegUrl(cam.id, { cacheBust: streamKey[cam.id] || 0 });
+            const ai = aiBadge(sess?.ai_status || (running ? "starting" : "idle"));
             const watchHits = (sess?.latest_labels || []).filter(
-              (l) => l.watchlist
+              (l) => l.decision === "CONFIRM" || l.decision === "REVIEW"
             );
+            const hall =
+              cam.room_label ||
+              sess?.room_label ||
+              (cam.room_id ? `Room #${cam.room_id}` : "Hall");
+            const camBadge = running
+              ? { label: "LIVE", className: "bg-emerald-500" }
+              : camFailed
+                ? { label: "ERROR", className: "bg-rose-600" }
+                : cam.is_active
+                  ? { label: "READY", className: "bg-amber-500" }
+                  : { label: "OFFLINE", className: "bg-rose-500" };
 
             return (
               <div
                 key={cam.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                className="portal-card overflow-hidden"
               >
                 <div className="relative flex h-56 items-center justify-center bg-slate-900 text-slate-400">
                   {mjpeg ? (
@@ -256,145 +334,176 @@ export default function MonitoringPage() {
                     <span className="px-4 text-center text-sm">
                       {sess?.error
                         ? sess.error
-                        : "Stopped — use Demo buttons or Start below"}
+                        : canControl
+                          ? "Not monitoring — press Start Monitoring"
+                          : "Not monitoring"}
                     </span>
                   )}
                   <span
-                    className={[
-                      "absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-bold text-white",
-                      running
-                        ? "bg-emerald-500"
-                        : cam.is_active
-                          ? "bg-amber-500"
-                          : "bg-rose-500",
-                    ].join(" ")}
+                    className={`absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-bold text-white ${camBadge.className}`}
                   >
-                    {running ? "LIVE" : cam.is_active ? "READY" : "OFFLINE"}
+                    {camBadge.label}
                   </span>
+                  {running || sess?.model_error || sess?.ai_status === "error" ? (
+                    <span
+                      className={`absolute left-3 top-3 rounded px-2 py-0.5 text-[10px] font-bold text-white ${ai.className}`}
+                    >
+                      {ai.label}
+                    </span>
+                  ) : null}
                   {watchHits.length ? (
-                    <span className="absolute left-3 top-3 rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                      UFM: {watchHits.map((l) => l.label).join(", ")}
+                    <span
+                      className={[
+                        "absolute bottom-3 left-3 rounded px-2 py-0.5 text-[10px] font-bold text-white",
+                        watchHits.some((l) => l.decision === "CONFIRM")
+                          ? "bg-rose-600"
+                          : "bg-amber-500",
+                      ].join(" ")}
+                    >
+                      {watchHits.some((l) => l.decision === "CONFIRM")
+                        ? "UFM"
+                        : "REVIEW"}
+                      :{" "}
+                      {watchHits
+                        .map((l) => l.category || l.label)
+                        .slice(0, 3)
+                        .join(", ")}
                     </span>
                   ) : null}
                 </div>
 
                 <div className="space-y-3 px-4 py-3">
                   <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {hall}
+                    </p>
                     <p className="font-semibold text-au-navy">{cam.name}</p>
                     <p className="text-xs text-slate-500">{cam.camera_id}</p>
-                    <p className="mt-0.5 truncate text-xs text-slate-500">
-                      {cam.stream_url}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Source: {cam.source_kind || "configured"}
+                      {cam.stream_display ? ` · ${cam.stream_display}` : ""}
                     </p>
-                    {sess?.weights_mode ? (
-                      <p className="mt-1 text-xs text-slate-500">
-                        YOLO: {sess.weights_mode}
-                        {sess.opened_source ? ` · ${sess.opened_source}` : ""}
-                      </p>
-                    ) : null}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Monitoring:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {sess?.monitoring_status || (running ? "monitoring" : "stopped")}
+                      </span>
+                      {sess?.weights_mode ? (
+                        <span className="ml-2">
+                          · weights{" "}
+                          <span className="font-semibold text-slate-700">
+                            {sess.weights_mode}
+                          </span>
+                        </span>
+                      ) : null}
+                      {sess?.infer_latency_ms != null ? (
+                        <span className="ml-2">
+                          · {sess.infer_latency_ms} ms
+                        </span>
+                      ) : null}
+                      {sess?.persist_error ? (
+                        <span className="ml-2 font-semibold text-rose-600">
+                          Save failed
+                          {sess.pending_persists
+                            ? ` (${sess.pending_persists} pending retry)`
+                            : ""}
+                        </span>
+                      ) : null}
+                      {sess?.model_error ? (
+                        <span className="ml-2 font-semibold text-rose-600">
+                          {sess.model_error}
+                        </span>
+                      ) : null}
+                      {running && sess?.posture_engine?.fallback ? (
+                        <span className="mt-1 block text-[11px] text-slate-500">
+                          Posture: OpenCV fallback (MediaPipe not installed)
+                        </span>
+                      ) : null}
+                    </p>
                   </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <label className="flex items-center gap-2 text-xs text-slate-600">
-                      <input
-                        type="checkbox"
-                        checked={detectOn}
-                        disabled={running || busy}
-                        onChange={(e) =>
-                          setDetectById((p) => ({
-                            ...p,
-                            [cam.id]: e.target.checked,
-                          }))
-                        }
-                      />
-                      YOLO detect
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-slate-600">
-                      <input
-                        type="checkbox"
-                        checked={persistOn}
-                        disabled={running || busy}
-                        onChange={(e) =>
-                          setPersistById((p) => ({
-                            ...p,
-                            [cam.id]: e.target.checked,
-                          }))
-                        }
-                      />
-                      Persist → DB
-                    </label>
-                  </div>
-
-                  <input
-                    className="w-full rounded border border-slate-200 px-2 py-1 text-xs"
-                    placeholder="Override (webcam:0 or file path)"
-                    value={overrideById[cam.id] || ""}
-                    disabled={running || busy}
-                    onChange={(e) =>
-                      setOverrideById((p) => ({
-                        ...p,
-                        [cam.id]: e.target.value,
-                      }))
-                    }
-                  />
 
                   <div className="flex flex-wrap gap-2">
-                    {running ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleStop(cam)}
-                        className="rounded bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-                      >
-                        {busy ? "…" : "Stop"}
-                      </button>
-                    ) : (
-                      <>
+                    {canControl ? (
+                      running ? (
                         <button
                           type="button"
                           disabled={busy}
+                          onClick={() => handleStop(cam)}
+                          className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          {busy ? "…" : "Stop Monitoring"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy || !cam.is_active}
                           onClick={() => handleStart(cam)}
-                          className="rounded bg-au-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                          className="rounded-lg bg-au-navy px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                         >
-                          Start
+                          {busy ? "Starting…" : "Start Monitoring"}
                         </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => handleStart(cam, "webcam:0")}
-                          className="rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          Webcam
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => handleStart(cam, SAMPLE_CLIP)}
-                          className="rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          Sample clip
-                        </button>
-                      </>
+                      )
+                    ) : (
+                      <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                        View only
+                      </span>
                     )}
+                    <Link
+                      to="/app/detections"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Alerts
+                    </Link>
+                    <Link
+                      to="/app/evidence"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Evidence
+                    </Link>
                   </div>
 
                   {sess?.recent_events?.length ? (
-                    <ul className="max-h-24 space-y-1 overflow-auto rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">
-                      {sess.recent_events
-                        .slice()
-                        .reverse()
-                        .slice(0, 6)
-                        .map((ev, i) => (
-                          <li key={`${ev.timestamp}-${i}`}>
-                            <span className="font-medium text-rose-600">
-                              {ev.label}
-                            </span>{" "}
-                            ({ev.confidence.toFixed(2)})
-                            {ev.persisted_id
-                              ? ` → detection #${ev.persisted_id}`
-                              : ""}
-                          </li>
-                        ))}
-                    </ul>
+                    <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        Confirmed / review AI events
+                      </p>
+                      <ul className="max-h-28 space-y-1 overflow-auto rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">
+                        {sess.recent_events
+                          .slice()
+                          .reverse()
+                          .slice(0, 6)
+                          .map((ev, i) => (
+                            <li key={`${ev.timestamp}-${i}`}>
+                              <span
+                                className={
+                                  ev.decision === "REVIEW"
+                                    ? "font-medium text-amber-600"
+                                    : "font-medium text-rose-600"
+                                }
+                              >
+                                {ev.decision === "REVIEW"
+                                  ? "REVIEW candidate"
+                                  : "Confirmed event"}{" "}
+                                · {ev.label}
+                              </span>{" "}
+                              (det. conf. {Number(ev.confidence).toFixed(2)})
+                              {ev.persisted_id
+                                ? ` · evidence #${ev.persisted_id}`
+                                : ev.save_status === "pending"
+                                  ? " · saving…"
+                                  : ev.save_status === "failed"
+                                    ? " · save failed"
+                                    : ""}
+                              {ev.timestamp ? (
+                                <span className="text-slate-400">
+                                  {" "}
+                                  · {String(ev.timestamp).replace("T", " ")}
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -402,21 +511,6 @@ export default function MonitoringPage() {
           })}
         </div>
       )}
-
-      <p className="text-sm text-slate-500">
-        Related:{" "}
-        <Link to="/app/detections" className="font-semibold text-au-blue">
-          Detections & Alerts
-        </Link>
-        {" · "}
-        <Link to="/app/cases/new" className="font-semibold text-au-blue">
-          Create Case
-        </Link>
-        {" · "}
-        <Link to="/app/master-data" className="font-semibold text-au-blue">
-          Master Data
-        </Link>
-      </p>
     </div>
   );
 }

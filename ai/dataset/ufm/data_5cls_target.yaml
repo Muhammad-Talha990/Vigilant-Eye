@@ -1,0 +1,20 @@
+# Target 5-class UFM taxonomy matching historical ufm_custom/best.pt
+# and ai/ufm_classes.py (excluding normal_watch until annotated).
+#
+# NOTE: The merged Roboflow images under images/{train,val} currently use a
+# DIFFERENT 6-class id map (see data.yaml). Do not train/eval the 5-class
+# checkpoint against data.yaml without remapping labels.
+#
+# For measurable eval of the existing 5-class checkpoint, point --data at a
+# label set that uses this name order (e.g. FYP placed weak-label set).
+
+path: .
+train: images/train
+val: images/val
+
+names:
+  0: mobile_phone
+  1: smart_watch
+  2: notes_paper
+  3: electronic_gadget
+  4: suspicious_object

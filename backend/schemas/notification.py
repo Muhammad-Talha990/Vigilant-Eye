@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel
+
+from schemas.utc_datetime import UtcDateTime
 
 
 class NotificationOut(BaseModel):
@@ -11,6 +11,9 @@ class NotificationOut(BaseModel):
     title: str
     message: str
     is_read: bool
-    created_at: datetime
+    created_at: UtcDateTime
+    case_number: str | None = None
+    case_status: str | None = None
+    case_violation: str | None = None
 
     model_config = {"from_attributes": True}

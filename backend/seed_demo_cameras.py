@@ -33,7 +33,11 @@ DEMO_CAMERAS = [
 ]
 
 
-def seed() -> None:
+def seed(*, quiet: bool = False) -> None:
+    def log(msg: str) -> None:
+        if not quiet:
+            print(msg)
+
     db = SessionLocal()
     try:
         room = db.scalar(select(ExamRoom).where(ExamRoom.room_number == DEMO_ROOM))
@@ -45,9 +49,9 @@ def seed() -> None:
             )
             db.add(room)
             db.flush()
-            print(f"CREATE room {DEMO_ROOM} id={room.id}")
+            log(f"CREATE room {DEMO_ROOM} id={room.id}")
         else:
-            print(f"SKIP  room {DEMO_ROOM} id={room.id}")
+            log(f"SKIP  room {DEMO_ROOM} id={room.id}")
 
         for spec in DEMO_CAMERAS:
             existing = db.scalar(
@@ -58,7 +62,7 @@ def seed() -> None:
                 existing.stream_url = spec["stream_url"]
                 existing.room_id = room.id
                 existing.is_active = True
-                print(
+                log(
                     f"UPDATE camera {spec['camera_id']} -> {spec['stream_url']}"
                 )
                 continue
@@ -71,7 +75,7 @@ def seed() -> None:
                     is_active=True,
                 )
             )
-            print(f"CREATE camera {spec['camera_id']}")
+            log(f"CREATE camera {spec['camera_id']}")
 
         exam = db.scalar(select(Exam).where(Exam.course_code == "CS101"))
         if exam is None:
@@ -86,16 +90,16 @@ def seed() -> None:
                     room_id=room.id,
                 )
             )
-            print("CREATE exam CS101")
+            log("CREATE exam CS101")
         else:
-            print(f"SKIP  exam CS101 id={exam.id}")
+            log(f"SKIP  exam CS101 id={exam.id}")
 
         db.commit()
-        print()
-        print("Demo monitoring ready:")
-        print("  CAM-A101-01  stream_url=webcam:0")
-        print("  CAM-A101-02  stream_url=ai/samples/sample_exam_clip.mp4")
-        print("Login invigilator -> Live Monitoring -> Start sample clip / webcam")
+        log("")
+        log("Demo monitoring ready:")
+        log("  CAM-A101-01  stream_url=webcam:0")
+        log("  CAM-A101-02  stream_url=ai/samples/sample_exam_clip.mp4")
+        log("Login invigilator -> Live Monitoring -> Start sample clip / webcam")
     finally:
         db.close()
 

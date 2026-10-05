@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field
+
+from schemas.utc_datetime import UtcDateTime
 
 
 class DetectionOut(BaseModel):
@@ -9,10 +9,13 @@ class DetectionOut(BaseModel):
     student_id: int | None
     detection_type: str
     confidence: float
-    timestamp: datetime
+    timestamp: UtcDateTime
     is_confirmed: bool
+    is_seen: bool = False
+    is_demo: bool = False
     source_path: str | None
     frame_index: int | None
+    model_version: str | None = None
 
     model_config = {"from_attributes": True}
 

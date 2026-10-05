@@ -1,0 +1,93 @@
+# VigilantEye recommended local demo stack.
+# Official startup:  .\start-dev.ps1   OR   docker compose up --build
+#
+# Production (standalone file — do not merge with this one):
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+#
+# Host ports (chosen to avoid conflict with Windows PostgreSQL on 5432/5433):
+#   PostgreSQL (host): 15432  → container db:5432
+#   API:               8000
+#   Frontend:          5173
+#
+# Inside the Compose network the API always uses hostname "db", never localhost.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vigilant_eye}
+      POSTGRES_USER: ${POSTGRES_USER:-vigilant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+    ports:
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
+    volumes:
+      - ve_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vigilant}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vigilant_eye}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      APP_ENV: ${APP_ENV:-development}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-}
+      ENABLE_DEMO_SEED: ${ENABLE_DEMO_SEED:-}
+      AUTH_MODE: ${AUTH_MODE:-demo}
+      PASSWORD_LOGIN_ENABLED: ${PASSWORD_LOGIN_ENABLED:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-VigilantEye}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-15}
+      PORTAL_BASE_URL: ${PORTAL_BASE_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      LIVE_POSTURE: ${LIVE_POSTURE:-1}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./ai:/app/ai
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 180s
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # Browser on the host talks to the published API port — not the Docker service name.
+      VITE_API_URL: ${VITE_API_URL:-http://127.0.0.1:8000}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - ve_frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+
+volumes:
+  ve_pg:
+  ve_frontend_node_modules:

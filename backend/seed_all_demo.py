@@ -16,7 +16,8 @@ def main() -> None:
     print("=== Rooms / cameras / exam ===")
     seed_cameras()
     print()
-    print("Demo seed complete. Login invigilator@demo.com / Demo@123")
+    print("Demo seed complete.")
+    print("Login: invigilator@demo.com (password documented in README)")
 
 
 if __name__ == "__main__":

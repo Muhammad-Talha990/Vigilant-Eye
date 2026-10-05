@@ -1,0 +1,12 @@
+# VigilantEye final OD taxonomy template — ufm-od-v0.1
+# Do not point train_yolo.py here until dataset_quality_gate --training-ready PASSES.
+path: .
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: mobile_phone
+  1: smart_watch
+  2: normal_watch
+  3: notes_paper
+  4: electronic_gadget

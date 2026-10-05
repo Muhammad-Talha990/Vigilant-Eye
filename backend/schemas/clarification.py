@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field
+
+from schemas.utc_datetime import UtcDateTime
 
 
 class ClarificationCreate(BaseModel):
@@ -14,6 +14,6 @@ class ClarificationOut(BaseModel):
     student_user_id: int
     statement: str
     status: str
-    created_at: datetime
+    created_at: UtcDateTime
 
     model_config = {"from_attributes": True}

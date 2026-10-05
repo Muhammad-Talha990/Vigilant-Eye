@@ -1,7 +1,8 @@
 """
 VigilantEye custom UFM detector classes + weight resolution.
 
-Maps YOLO labels (custom or COCO aliases) -> portal violation_type.
+Maps YOLO labels (custom or limited COCO aliases) -> portal categories.
+Ordinary watches are NOT mapped to smart_watch (COCO cannot tell them apart).
 """
 
 from __future__ import annotations
@@ -10,15 +11,17 @@ from pathlib import Path
 
 AI_ROOT = Path(__file__).resolve().parent
 
+# Target custom-detector vocabulary (train for these — do not invent under COCO)
 UFM_CLASS_NAMES = [
     "mobile_phone",
     "smart_watch",
+    "normal_watch",  # ALLOWED — required to stop watch↔phone confusion
     "notes_paper",
     "electronic_gadget",
     "suspicious_object",
 ]
 
-# Custom YOLO class name -> backend violation_type
+# Custom YOLO class name -> backend violation_type (normal_watch has none)
 CLASS_TO_VIOLATION = {
     "mobile_phone": "MOBILE_PHONE",
     "smart_watch": "SMART_WATCH",
@@ -27,7 +30,15 @@ CLASS_TO_VIOLATION = {
     "suspicious_object": "SUSPICIOUS_OBJECT",
 }
 
-# Common pretrained COCO / alternate names -> same portal types
+# Allowed custom classes (never violation)
+ALLOWED_CLASS_NAMES = {
+    "normal_watch",
+    "non_cheating",
+    "hand_normal",
+}
+
+# COCO aliases that are safe to treat as prohibited exam items.
+# Intentionally OMITTED: remote, watch, wristwatch, clock — false-positive sources.
 COCO_ALIASES_TO_CLASS = {
     "cell phone": "mobile_phone",
     "cellphone": "mobile_phone",
@@ -37,61 +48,59 @@ COCO_ALIASES_TO_CLASS = {
     "laptop": "electronic_gadget",
     "keyboard": "electronic_gadget",
     "mouse": "electronic_gadget",
-    "remote": "electronic_gadget",
-    "calculator": "electronic_gadget",
-    "headphone": "electronic_gadget",
-    "headphones": "electronic_gadget",
     "book": "notes_paper",
-    "paper": "notes_paper",
-    "cheating-paper": "notes_paper",
-    "cheating_paper": "notes_paper",
+}
+
+# Custom-model-only aliases (ignored under COCO mode by detection_policy)
+CUSTOM_ALIASES_TO_CLASS = {
     "smartwatch": "smart_watch",
     "smart watch": "smart_watch",
     "smart-watch": "smart_watch",
-    "wrist watch": "smart_watch",
-    "wrist-watch": "smart_watch",
-    "wristwatch": "smart_watch",
-    "watch": "smart_watch",
-    "cheating": "suspicious_object",
-    "student cheating": "suspicious_object",
-    "suitcase": "suspicious_object",
-    "handbag": "suspicious_object",
-    "backpack": "suspicious_object",
 }
 
 VIOLATION_TO_CLASS = {v: k for k, v in CLASS_TO_VIOLATION.items()}
 
-# Labels that may auto-draft a UFM case (custom + COCO aliases)
-UFM_WATCHLIST_LABELS = set(UFM_CLASS_NAMES) | set(COCO_ALIASES_TO_CLASS.keys())
+UFM_WATCHLIST_LABELS = set(CLASS_TO_VIOLATION.keys()) | set(
+    COCO_ALIASES_TO_CLASS.keys()
+)
 
 
-def normalize_label(raw: str) -> str:
-    """Lowercase + strip; map COCO aliases to custom class names when possible."""
+def normalize_label(raw: str, *, model_mode: str = "coco") -> str:
+    """
+    Map raw YOLO name -> app class name when possible; otherwise return raw.
+    Does not map generic 'watch' to smart_watch.
+    """
     key = (raw or "").strip().lower()
-    if key in CLASS_TO_VIOLATION:
+    if key in CLASS_TO_VIOLATION or key in ALLOWED_CLASS_NAMES:
         return key
-    return COCO_ALIASES_TO_CLASS.get(key, key)
+    if key in COCO_ALIASES_TO_CLASS:
+        return COCO_ALIASES_TO_CLASS[key]
+    if model_mode != "coco" and key in CUSTOM_ALIASES_TO_CLASS:
+        return CUSTOM_ALIASES_TO_CLASS[key]
+    return key
 
 
-def to_violation_type(raw_label: str) -> str | None:
-    """Return portal violation_type or None if unmapped."""
-    normalized = normalize_label(raw_label)
+def to_violation_type(raw_label: str, *, model_mode: str = "coco") -> str | None:
+    normalized = normalize_label(raw_label, model_mode=model_mode)
+    if normalized in ALLOWED_CLASS_NAMES:
+        return None
     if normalized in CLASS_TO_VIOLATION:
         return CLASS_TO_VIOLATION[normalized]
-    # Already a portal enum?
     upper = (raw_label or "").strip().upper()
     if upper in VIOLATION_TO_CLASS:
         return upper
     return None
 
 
-def is_ufm_watchlist(raw_label: str) -> bool:
-    key = (raw_label or "").strip().lower()
-    return key in UFM_WATCHLIST_LABELS or normalize_label(raw_label) in CLASS_TO_VIOLATION
+def is_ufm_watchlist(raw_label: str, *, model_mode: str = "coco") -> bool:
+    """True if label can become a UFM candidate (still subject to policy thresholds)."""
+    from detection_policy import decide, Decision
+
+    decision, _ = decide(raw_label=raw_label, confidence=1.0, model_mode=model_mode)
+    return decision != Decision.IGNORE
 
 
 def default_custom_weights() -> Path:
-    """Preferred trained weight from last train_yolo.py run."""
     return AI_ROOT / "runs" / "train" / "ufm_custom" / "weights" / "best.pt"
 
 
@@ -101,22 +110,32 @@ def default_coco_weights() -> Path:
 
 def resolve_weights(explicit: str | None = None) -> tuple[Path, str]:
     """
-    Pick weights in order:
-      1) --weights path if given and exists
-      2) custom trained best.pt
-      3) pretrained yolov8n.pt (COCO PoC fallback)
+    Pick weights for live / offline inference.
+
+    Default: COCO yolov8n (reliable phone / book / laptop on exam footage).
+    Custom best.pt is only used when YOLO_USE_CUSTOM=1 — the current
+    ufm_custom checkpoint often returns empty predictions on real samples.
 
     Returns (path, mode) where mode is 'explicit' | 'custom' | 'coco'.
     """
+    import os
+
     if explicit:
         path = Path(explicit)
         if path.is_file():
             return path.resolve(), "explicit"
         raise FileNotFoundError(f"Weights not found: {path}")
 
+    flag = os.getenv("YOLO_USE_CUSTOM", "").strip().lower()
+    prefer_custom = flag in {"1", "true", "yes"}
+
     custom = default_custom_weights()
+    coco = default_coco_weights()
+
+    if prefer_custom and custom.is_file():
+        return custom.resolve(), "custom"
+    if coco.is_file():
+        return coco.resolve(), "coco"
     if custom.is_file():
         return custom.resolve(), "custom"
-
-    coco = default_coco_weights()
     return coco.resolve(), "coco"

@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from time_utils import utc_now
 
 
 class Detection(Base):
@@ -18,7 +19,13 @@ class Detection(Base):
     )
     detection_type: Mapped[str] = mapped_column(String(100), index=True)
     confidence: Mapped[float] = mapped_column(Float)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Staff inbox: False = new / unseen alert
+    is_seen: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Demo / testing sessions — excluded from production queues by default
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     source_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     frame_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Traceable YOLO checkpoint identity (e.g. ufm_custom-20250924 / coco-yolov8n)
+    model_version: Mapped[str | None] = mapped_column(String(120), nullable=True)

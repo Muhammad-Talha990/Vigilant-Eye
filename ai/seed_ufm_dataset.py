@@ -23,17 +23,17 @@ from ufm_classes import AI_ROOT, UFM_CLASS_NAMES, default_coco_weights
 
 # Sample images that are exam/UFM-ish (prefer these for training seed)
 PREFERRED_SAMPLES = [
+    "phone_closeup.jpg",
+    "phone_on_desk.jpg",
     "phone_under_desk.jpg",
+    "phone_in_lap.jpg",
+    "smartwatch_closeup.jpg",
     "smartwatch.jpg",
-    "paper_exchange.jpg",
     "exam_hall.jpg",
 ]
 
 # Optional hard negatives (no UFM objects expected — empty labels)
-HARD_NEGATIVES = [
-    "bus.jpg",
-    "zidane.jpg",
-]
+HARD_NEGATIVES: list[str] = []
 
 VIDEO_SAMPLE = "sample_exam_clip.mp4"
 

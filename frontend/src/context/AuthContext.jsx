@@ -1,16 +1,32 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { fetchCurrentUser, loginRequest } from "../services/api";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  fetchCurrentUser,
+  googleLoginRequest,
+  loginRequest,
+} from "../services/api";
 
 const AuthContext = createContext(null);
 
 const TOKEN_KEY = "ve_token";
 const USER_KEY = "ve_user";
 
+/** Roles are DB uppercase strings; normalize so nav never misses ADMINISTRATOR. */
+function normalizeUser(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const role = typeof raw.role === "string" ? raw.role.trim().toUpperCase() : raw.role;
+  return { ...raw, role };
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    try {
+      return normalizeUser(JSON.parse(raw));
+    } catch {
+      return null;
+    }
   });
   const [loading, setLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -24,7 +40,7 @@ export function AuthProvider({ children }) {
         return;
       }
       try {
-        const me = await fetchCurrentUser();
+        const me = normalizeUser(await fetchCurrentUser());
         if (!cancelled) {
           setUser(me);
           localStorage.setItem(USER_KEY, JSON.stringify(me));
@@ -47,15 +63,32 @@ export function AuthProvider({ children }) {
     };
   }, [token]);
 
-  async function login(email, password) {
-    setError("");
-    const data = await loginRequest(email, password);
+  const applySession = useCallback((data) => {
+    const nextUser = normalizeUser(data.user);
     localStorage.setItem(TOKEN_KEY, data.access_token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setToken(data.access_token);
-    setUser(data.user);
-    return data.user;
-  }
+    setUser(nextUser);
+    return nextUser;
+  }, []);
+
+  const login = useCallback(
+    async (email, password) => {
+      setError("");
+      const data = await loginRequest(email, password);
+      return applySession(data);
+    },
+    [applySession]
+  );
+
+  const loginWithGoogle = useCallback(
+    async (idToken) => {
+      setError("");
+      const data = await googleLoginRequest(idToken);
+      return applySession(data);
+    },
+    [applySession]
+  );
 
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
@@ -72,10 +105,11 @@ export function AuthProvider({ children }) {
       error,
       setError,
       login,
+      loginWithGoogle,
       logout,
       isAuthenticated: Boolean(token && user),
     }),
-    [token, user, loading, error]
+    [token, user, loading, error, login, loginWithGoogle]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

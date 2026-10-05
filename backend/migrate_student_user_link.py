@@ -1,7 +1,11 @@
 """
-One-time / safe-to-re-run migration: add students.user_id for portal linking.
+OBSOLETE AFTER ALEMBIC (Phase 22) — classification A.
 
-Usage (from backend folder, venv active):
+Historically added students.user_id for portal linking. Now covered by models +
+Alembic baseline. Kept for reference; only invoked when
+LEGACY_ADDITIVE_MIGRATIONS=1 (non-production).
+
+Usage (legacy):
     python migrate_student_user_link.py
 """
 

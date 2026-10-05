@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VigilantEyeTemporalEvent",
+  "type": "object",
+  "required": [
+    "video_id",
+    "event_category",
+    "t_start_sec",
+    "t_end_sec",
+    "annotator"
+  ],
+  "properties": {
+    "video_id": { "type": "string", "description": "MOV stem, e.g. v_c1_s1_v1" },
+    "camera_group": { "type": "string", "description": "e.g. v_c1" },
+    "event_category": {
+      "type": "string",
+      "enum": [
+        "paper_exchange",
+        "peer_looking",
+        "cheat_sheet",
+        "cell_use",
+        "non_cheating",
+        "other"
+      ]
+    },
+    "t_start_sec": { "type": "number", "minimum": 0 },
+    "t_end_sec": { "type": "number", "minimum": 0 },
+    "participants_note": { "type": "string" },
+    "annotator": { "type": "string" },
+    "verified": { "type": "boolean", "default": false },
+    "notes": { "type": "string" }
+  }
+}

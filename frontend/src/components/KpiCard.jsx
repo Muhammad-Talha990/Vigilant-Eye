@@ -1,13 +1,23 @@
-export default function KpiCard({ title, value, hint, accent = "border-l-au-blue" }) {
+/**
+ * Static KPI / statistic card — C13-FIX information-only language.
+ * Analytical resting appearance; never navigates.
+ */
+export default function KpiCard({
+  title,
+  value,
+  hint,
+  accent = "border-l-slate-400",
+}) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 border-l-4 ${accent} bg-white p-4 shadow-sm`}
+      className={`portal-kpi ${accent}`}
+      data-affordance="static"
+      role="group"
+      aria-label={`${title}: ${value}`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </p>
-      <p className="mt-2 text-2xl font-semibold text-au-navy">{value}</p>
-      {hint ? <p className="mt-1 text-sm text-slate-500">{hint}</p> : null}
+      <p className="portal-kpi-label">{title}</p>
+      <p className="portal-kpi-value">{value}</p>
+      {hint ? <p className="portal-kpi-hint">{hint}</p> : null}
     </div>
   );
 }

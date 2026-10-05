@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel
+
+from schemas.utc_datetime import UtcDateTime
 
 
 class AuditLogOut(BaseModel):
@@ -12,6 +12,8 @@ class AuditLogOut(BaseModel):
     entity_type: str
     entity_id: int | None
     description: str
-    timestamp: datetime
+    timestamp: UtcDateTime
+    # Display enrichment from users.role — not stored on audit_logs.
+    user_role: str | None = None
 
     model_config = {"from_attributes": True}

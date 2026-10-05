@@ -1,54 +1,36 @@
-# Custom UFM YOLO dataset
+# VigilantEye datasets
 
-Place annotated exam-scene images here before training.
+**Authoritative gate:** `docs/AI_ANNOTATION_READINESS_REPORT.md`  
+**License manifest:** `ai/dataset/LICENSE_MANIFEST.md`  
+**Taxonomy:** `ufm-od-taxonomy-v1`  
+**Target version:** `ufm-od-v0.1` (not ready until annotation + gate PASS)
 
 ## Layout
 
 ```text
-ai/dataset/ufm/
-  data.yaml           # class list
-  images/train/       # training frames
-  images/val/         # validation frames
-  labels/train/       # YOLO .txt labels
-  labels/val/
-  dataset/            # optional Roboflow exports (imported via script)
+ai/dataset/
+  LICENSE_MANIFEST.md
+  README.md
+  ufm/
+    data.yaml              # active YOLO config (must match taxonomy when training)
+    images/{train,val,test}/
+    labels/{train,val,test}/
+    dataset/               # raw Roboflow / placed exports (gitignored media)
+    experimental/          # quarantined weak labels (do not train)
 ```
 
-## Current training classes
+Placed CCTV + cheating videos currently live primarily under the FYP tree:
 
-After importing Roboflow exam + wrist-watch datasets, `data.yaml` uses:
+`C:\Users\KING\Desktop\FYP\Vigilant Eye\ai\dataset\ufm\dataset`
 
-| ID | Class | Portal mapping |
-|----|--------|----------------|
-| 0 | mobile_phone | MOBILE_PHONE |
-| 1 | smart_watch | SMART_WATCH |
-| 2 | notes_paper | NOTES_PAPER |
-| 3 | suspicious_object | SUSPICIOUS_OBJECT |
-| 4 | non_cheating | (context; not auto-draft) |
-| 5 | hand_normal | (context; not auto-draft) |
+## Rules
 
-`electronic_gadget` remains supported in `ai/ufm_classes.py` for COCO aliases / future labels.
+1. Do not train on weak COCO bootstrap labels.  
+2. Do not enable rejected `best.pt`.  
+3. Session-aware splits only (`ai/session_aware_split.py`).  
+4. External data only if listed as included in `LICENSE_MANIFEST.md`.  
+5. Temporal behaviors are not YOLO classes.
 
-## Import Roboflow export
+## Mapping
 
-```powershell
-python ai/import_roboflow_dataset.py --source "ai/dataset/ufm/dataset/<export-folder>"
-python ai/import_roboflow_dataset.py --source "ai/dataset/ufm/dataset/wrist-watch" --merge --prefix sw
-```
-
-## Train (low-RAM CPU)
-
-```powershell
-python ai/train_yolo.py --epochs 15 --batch 1 --imgsz 416 --mosaic 0 --workers 0
-python ai/test_detector.py --source ai/samples/phone_under_desk.jpg
-```
-
-Weights land at `ai/runs/train/ufm_custom/weights/best.pt`. If missing, detectors fall back to COCO `yolov8n.pt`.
-
-## YOLO label format
-
-```text
-<class_id> <x_center> <y_center> <width> <height>
-```
-
-Coordinates normalized 0–1.
+See `ai/dataset_mapping.py`.

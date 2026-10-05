@@ -14,8 +14,8 @@ export default function DonutChart({ title, segments, emptyLabel = "No data" }) 
     .join(", ");
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="font-semibold text-au-navy">{title}</h2>
+    <section className="portal-card p-4">
+      <h2 className="portal-section-title">{title}</h2>
       {total === 0 ? (
         <p className="mt-6 text-sm text-slate-500">{emptyLabel}</p>
       ) : (

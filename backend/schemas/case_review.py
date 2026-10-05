@@ -1,6 +1,6 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field
+
+from schemas.utc_datetime import UtcDateTime
 
 
 class CaseReviewCreate(BaseModel):
@@ -8,6 +8,8 @@ class CaseReviewCreate(BaseModel):
 
     action: str = Field(min_length=1, max_length=50)
     remarks: str | None = None
+    signer_name: str = Field(min_length=2, max_length=150)
+    signature_ack: bool = True
 
 
 class CaseReviewOut(BaseModel):
@@ -17,6 +19,9 @@ class CaseReviewOut(BaseModel):
     reviewer_role: str
     action: str
     remarks: str | None
-    created_at: datetime
+    created_at: UtcDateTime
+    signer_name: str | None = None
+    signed_at: UtcDateTime | None = None
+    signature_ack: bool = False
 
     model_config = {"from_attributes": True}

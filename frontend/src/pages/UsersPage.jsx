@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import LoadingState from "../components/LoadingState";
+import PageHeader from "../components/PageHeader";
+import { DEMO_FORM_PASSWORD } from "../config/demoMode";
 import { ROLE_LABELS } from "../config/navByRole";
+import { formatDateTime } from "../config/dateTime";
+
 import { useAuth } from "../context/AuthContext";
 import { createUser, fetchUsers } from "../services/api";
 
@@ -29,7 +33,7 @@ export default function UsersPage() {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    password: "Demo@123",
+    password: DEMO_FORM_PASSWORD,
     role: "INVIGILATOR",
   });
 
@@ -73,7 +77,7 @@ export default function UsersPage() {
         ...prev,
         name: "",
         email: "",
-        password: "Demo@123",
+        password: DEMO_FORM_PASSWORD,
       }));
       await load();
     } catch (err) {
@@ -90,32 +94,24 @@ export default function UsersPage() {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         Staff user management is restricted to HOD, Exam Department, and UFM
-        Committee. Student portal accounts are managed on{" "}
-        <Link to="/app/students" className="font-semibold text-au-blue">
-          Students
-        </Link>
-        .
+        Committee.
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm text-slate-500">Home / Staff Users</p>
-        <h1 className="text-2xl font-semibold text-au-navy">Staff Users</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Portal logins for invigilators and institutional reviewers. Student
-          logins are on the{" "}
-          <Link to="/app/students" className="font-semibold text-au-blue">
-            Students
-          </Link>{" "}
-          page.
-        </p>
-      </div>
+      <PageHeader
+        breadcrumb="Home / User Management"
+        title="User Management"
+        description="Portal accounts for invigilators and institutional reviewers."
+      />
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {error}
         </div>
       ) : null}
@@ -174,9 +170,9 @@ export default function UsersPage() {
           <button
             type="submit"
             disabled={busy}
-            className="rounded-xl bg-au-navy px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2 sm:w-fit"
+            className="btn-primary sm:col-span-2 sm:w-fit"
           >
-            {busy ? "Creating..." : "Create Staff User"}
+            {busy ? "Creating…" : "Create Staff User"}
           </button>
         </form>
       ) : (
@@ -206,50 +202,50 @@ export default function UsersPage() {
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
-          <p className="p-6 text-slate-500">Loading...</p>
+          <LoadingState
+            compact
+            title="Loading staff users…"
+            detail="Retrieving portal accounts."
+          />
         ) : (
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Active</th>
-                <th className="px-4 py-3">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
+          <div className="portal-table-wrap">
+            <table className="portal-table">
+              <thead>
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={6}>
-                    No staff users match this filter.
-                  </td>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Active</th>
+                  <th>Created</th>
                 </tr>
-              ) : (
-                filtered.map((u) => (
-                  <tr key={u.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3">{u.id}</td>
-                    <td className="px-4 py-3 font-medium text-au-navy">
-                      {u.name}
-                    </td>
-                    <td className="px-4 py-3">{u.email}</td>
-                    <td className="px-4 py-3">
-                      {ROLE_LABELS[u.role] || u.role}
-                    </td>
-                    <td className="px-4 py-3">
-                      {u.is_active ? "Yes" : "No"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {u.created_at
-                        ? new Date(u.created_at).toLocaleString()
-                        : "—"}
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td className="text-slate-500" colSpan={6}>
+                      No staff users match this filter.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filtered.map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.id}</td>
+                      <td className="font-medium text-au-navy">{u.name}</td>
+                      <td>{u.email}</td>
+                      <td>{ROLE_LABELS[u.role] || u.role}</td>
+                      <td>{u.is_active ? "Yes" : "No"}</td>
+                      <td className="text-slate-500">
+                        {u.created_at
+                          ? formatDateTime(u.created_at)
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

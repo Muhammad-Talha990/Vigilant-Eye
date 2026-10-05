@@ -1,116 +1,139 @@
-import { NavLink } from "react-router-dom";
-import {
-  ROLE_LABELS,
-  SWITCHABLE_ROLES,
-  getNavForRole,
-} from "../config/navByRole";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { isSidebarNavActive } from "../config/navActive";
+import { ROLE_LABELS, getNavForRole } from "../config/navByRole";
 import { useAuth } from "../context/AuthContext";
 
-function linkClass({ isActive }) {
+function linkClass(active) {
   return [
-    "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition",
-    isActive
-      ? "bg-au-navy font-semibold text-white"
-      : "text-slate-700 hover:bg-slate-200/80",
+    "portal-option flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-none",
+    active
+      ? "bg-au-navy font-semibold text-white shadow-sm"
+      : "text-slate-700 hover:bg-sky-200 hover:text-au-navy",
   ].join(" ");
 }
 
 export default function Sidebar({ open, badges = {}, onNavigate }) {
-  const { user } = useAuth();
-  const role = user?.role || "INVIGILATOR";
-  const items = getNavForRole(role);
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const role = typeof user?.role === "string" ? user.role.trim().toUpperCase() : "";
+  const sections = getNavForRole(role);
   const now = new Date();
+  const roleUnresolved = Boolean(user) && !role;
+  const unsupportedRole = Boolean(role) && sections.length === 0;
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(min-width: 1024px)").matches
+      : true
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Off-canvas mobile drawer must not remain keyboard-focusable when closed.
+  const drawerHidden = !isDesktop && !open;
 
   return (
     <>
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           aria-label="Close sidebar"
           onClick={onNavigate}
         />
       ) : null}
 
       <aside
+        id="portal-sidebar"
+        data-portal-chrome
         className={[
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-[#eef1f6] pt-14 transition-transform lg:static lg:translate-x-0 lg:pt-0",
+          "sidebar fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-[#e8ecf2] pt-14 transition-transform duration-200",
+          "lg:static lg:inset-auto lg:h-full lg:min-h-0 lg:shrink-0 lg:translate-x-0 lg:pt-0",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
+        aria-label="Main navigation"
+        aria-hidden={drawerHidden ? true : undefined}
+        inert={drawerHidden ? true : undefined}
       >
-        <div className="border-b border-slate-200 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Current Role
+        <div className="shrink-0 border-b border-slate-200/80 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            Signed in as
           </p>
-          <div className="mt-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-au-navy">
-            {ROLE_LABELS[role] || role}
+          <div className="mt-1.5 rounded-md border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+            <p
+              className="truncate text-sm font-semibold text-au-navy"
+              title={user?.name || ""}
+            >
+              {user?.name || "User"}
+            </p>
+            <p
+              className="mt-0.5 truncate text-xs text-slate-500"
+              title={user?.email || ""}
+            >
+              {user?.email || "—"}
+            </p>
+            <p className="mt-2">
+              <span className="portal-badge-role">
+                {ROLE_LABELS[role] || role || (loading ? "…" : "—")}
+              </span>
+            </p>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
-          {items.map((item) => (
-            <NavLink
-              key={`${item.to}-${item.label}`}
-              to={item.to}
-              end={item.to === "/app/dashboard"}
-              className={linkClass}
-              onClick={onNavigate}
-            >
-              <span>
-                {item.label}
-                {item.soon ? (
-                  <span className="ml-2 text-[10px] font-normal text-slate-400">
-                    soon
-                  </span>
-                ) : null}
-              </span>
-              {item.badgeKey && badges[item.badgeKey] > 0 ? (
-                <span className="rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                  {badges[item.badgeKey]}
-                </span>
-              ) : null}
-            </NavLink>
-          ))}
-
-          {role !== "STUDENT" ? (
-            <div className="pt-4">
-              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Switch Dashboard
+        <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-4">
+          {loading && !user ? (
+            <p className="px-3 text-sm text-slate-500">Resolving session…</p>
+          ) : null}
+          {roleUnresolved || unsupportedRole ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Access denied: unrecognized portal role
+              {role ? ` (${role})` : ""}. Contact an administrator.
+            </div>
+          ) : null}
+          {sections.map((group) => (
+            <div key={group.section}>
+              <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {group.section}
               </p>
-              <div className="space-y-1">
-                {SWITCHABLE_ROLES.map((r) => {
-                  const active = r === role;
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = isSidebarNavActive(location, item.to);
                   return (
-                    <div
-                      key={r}
-                      className={[
-                        "rounded-lg px-3 py-2 text-sm",
-                        active
-                          ? "bg-white font-semibold text-au-navy shadow-sm"
-                          : "text-slate-400",
-                      ].join(" ")}
-                      title={
-                        active
-                          ? "Your current role"
-                          : "Log in with that demo account to open this dashboard"
-                      }
+                    <Link
+                      key={`${item.to}-${item.label}`}
+                      to={item.to}
+                      className={linkClass(active)}
+                      aria-current={active ? "page" : undefined}
+                      onClick={onNavigate}
+                      data-nav-to={item.to}
+                      data-nav-active={active ? "true" : "false"}
                     >
-                      {ROLE_LABELS[r]}
-                      {!active ? (
-                        <span className="ml-2 text-[10px]">(other login)</span>
+                      <span>{item.label}</span>
+                      {item.badgeKey && badges[item.badgeKey] > 0 ? (
+                        <span className="min-w-[1.25rem] rounded-full bg-rose-500 px-1.5 text-center text-[10px] font-bold leading-5 text-white">
+                          {badges[item.badgeKey] > 99
+                            ? "99+"
+                            : badges[item.badgeKey]}
+                        </span>
                       ) : null}
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             </div>
-          ) : null}
+          ))}
         </nav>
 
-        <div className="border-t border-slate-200 p-3 text-xs text-slate-500">
-          <div className="rounded-lg bg-white px-3 py-2 shadow-sm">
-            <p className="font-medium text-slate-700">System Time</p>
-            <p>
+        <div className="shrink-0 border-t border-slate-200/80 p-3 text-xs text-slate-500">
+          <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+            <p className="font-medium text-slate-700">System time</p>
+            <p className="mt-0.5 tabular-nums">
               {now.toLocaleDateString()} · {now.toLocaleTimeString()}
             </p>
           </div>

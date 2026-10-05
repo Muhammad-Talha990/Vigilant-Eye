@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from time_utils import utc_now
 
 
 class CaseReview(Base):
@@ -15,4 +16,7 @@ class CaseReview(Base):
     reviewer_role: Mapped[str] = mapped_column(String(50))
     action: Mapped[str] = mapped_column(String(50))
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    signer_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    signature_ack: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)

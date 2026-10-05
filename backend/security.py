@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
+# Default 60 minutes. Production validates <= 60 via app_config.
+# Demo/local may raise this via environment (e.g. 480).
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 JWT_ALGORITHM = "HS256"
 

@@ -1,0 +1,162 @@
+"""Administrative role descriptions — mirrors backend authorization (C11-B).
+
+Do not invent capabilities that are not enforced server-side.
+"""
+
+from __future__ import annotations
+
+# Ordered for UI display.
+ROLE_PERMISSION_MATRIX: list[dict] = [
+    {
+        "role": "ADMINISTRATOR",
+        "title": "Administrator",
+        "summary": "Portal access and system administration only — not UFM operations.",
+        "can": [
+            "Manage authorized portal users (create, search, filter)",
+            "Assign and change VigilantEye DB roles",
+            "Activate and deactivate accounts",
+            "Bulk-import users from CSV",
+            "Link / unlink student rolls to STUDENT portal users",
+            "View administrative audit events (/app/admin/audit)",
+            "View administrative student directory (access management)",
+            "View system authentication mode information",
+        ],
+        "cannot": [
+            "Live monitoring / camera control",
+            "Detections inbox",
+            "UFM case creation or review workflow",
+            "Evidence library operations",
+            "Result holds / releases",
+            "Operational audit trail (/app/audit)",
+            "Institution-wide operational reports",
+        ],
+    },
+    {
+        "role": "STUDENT",
+        "title": "Student",
+        "summary": "Self-service access to the student's own UFM matters.",
+        "can": [
+            "View own linked UFM cases",
+            "Submit clarification on own cases when eligible",
+            "View own notifications",
+            "Access help / profile pages",
+        ],
+        "cannot": [
+            "View other students' cases",
+            "Access detections, cameras, or live monitoring",
+            "Access reports, audit, result controls, or staff directories",
+        ],
+    },
+    {
+        "role": "INVIGILATOR",
+        "title": "Invigilator",
+        "summary": "Examination floor monitoring and incident reporting.",
+        "can": [
+            "Live monitoring and camera streams",
+            "Detections & alerts inbox",
+            "Create UFM cases / report incidents",
+            "Upload evidence",
+            "Track own / submitted cases",
+            "Reports for own submitted cases (CSV scoped to reporter)",
+            "Select existing student/exam context when filing a case (API selectors only)",
+            "Register minimum student/exam details only inside UFM case filing (not master-data APIs)",
+        ],
+        "cannot": [
+            "Standalone Students directory page",
+            "Exam Setup / master-data module",
+            "Institution-wide case CSV (other reporters' cases)",
+            "Operational audit trail",
+            "Result holds / releases",
+            "Staff / user administration",
+            "Workflow forward / final decisions",
+            "General student/exam master-data create, edit, or delete via directory APIs",
+        ],
+    },
+    {
+        "role": "HOD",
+        "title": "Head of Department",
+        "summary": "Department-level UFM review and verification (not case creation or live monitoring).",
+        "can": [
+            "Review / verify / return / forward cases in HOD stages",
+            "View / verify evidence attached to cases",
+            "Reports and operational audit (institutional list today)",
+        ],
+        "cannot": [
+            "Create UFM cases (Invigilator only)",
+            "Upload new evidence (Invigilator only)",
+            "Live monitoring / camera control",
+            "Detections inbox",
+            "Standalone Students directory module",
+            "Exam Setup / master-data module",
+            "Dedicated With DEC navigation shortcut (workflow status remains)",
+            "Administrator bulk import / admin APIs",
+            "Final UFM committee APPROVE/REJECT",
+            "Result hold release",
+            "Staff provisioning UI",
+        ],
+    },
+    {
+        "role": "DEC",
+        "title": "Department Examination Committee",
+        "summary": "DEC review stage in the UFM workflow.",
+        "can": [
+            "Review cases in DEC_REVIEW",
+            "Return / forward using existing case review actions",
+            "Evidence view",
+            "Reports and operational audit",
+        ],
+        "cannot": [
+            "Live monitoring controls",
+            "Raw detections inbox",
+            "Create UFM cases",
+            "Upload new evidence (Invigilator only)",
+            "Standalone Students directory module",
+            "Dedicated Forwarded to Exam Dept. navigation shortcut (workflow status remains)",
+            "Result hold release",
+            "Administrator / staff provisioning",
+            "Create exams / rooms / cameras as operator",
+        ],
+    },
+    {
+        "role": "EXAM_DEPARTMENT",
+        "title": "Exam Department",
+        "summary": "Institution-wide case processing, result controls, and records.",
+        "can": [
+            "Process EXAM_DEPARTMENT_REVIEW cases (forward to committee)",
+            "Result holds / releases",
+            "Institution-wide reports and case CSV export",
+            "Operational audit",
+        ],
+        "cannot": [
+            "Live monitoring / camera control",
+            "Detections inbox",
+            "Create UFM cases",
+            "Upload new evidence (Invigilator only)",
+            "Standalone Students directory module",
+            "Exam Setup / master-data module",
+            "Administrator-only APIs",
+            "Final UFM committee APPROVE/REJECT",
+            "Staff provisioning UI (Administrator only)",
+        ],
+    },
+    {
+        "role": "UFM_COMMITTEE",
+        "title": "UFM Committee",
+        "summary": "Final UFM committee review and decision.",
+        "can": [
+            "Review UFM_COMMITTEE_REVIEW cases",
+            "Final APPROVE / REJECT",
+            "Evidence view",
+            "Result holds / releases",
+            "Reports and operational audit",
+        ],
+        "cannot": [
+            "Standalone Students directory module",
+            "Administrator APIs / staff provisioning UI",
+            "Create UFM cases",
+            "Upload new evidence (Invigilator only)",
+            "Live monitoring / detections",
+            "Create exam infrastructure",
+        ],
+    },
+]
